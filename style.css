@@ -14,17 +14,31 @@
   --font-body: 'Inter', sans-serif;
 }
 
-* { margin: 0; padding: 0; box-sizing: border-box; }
-html { cursor: none; }
+/* ===== ΑΠΟΚΡΥΨΗ DEFAULT CURSOR ΠΑΝΤΟΥ ===== */
+* {
+  cursor: none !important;
+}
+/* Εξαίρεση: επαναφορά σε touch συσκευές θα γίνει με media query */
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+html {
+  cursor: none;
+}
 body {
   font-family: var(--font-body);
   background: var(--bg);
   color: var(--text);
   overflow-x: hidden;
 }
+
 ::-webkit-scrollbar { width: 5px; }
 ::-webkit-scrollbar-track { background: var(--bg); }
 ::-webkit-scrollbar-thumb { background: var(--accent-1); border-radius: 5px; }
+
 .hidden { opacity: 0; visibility: hidden; pointer-events: none; }
 .no-scroll { overflow: hidden; }
 
@@ -190,15 +204,41 @@ body {
 .scroll-top { background: var(--surface); border: 1px solid var(--border); color: var(--text); width: 40px; height: 40px; border-radius: 50%; display: flex; align-items: center; justify-content: center; cursor: none; transition: border-color 0.2s, box-shadow 0.2s; }
 .scroll-top:hover { border-color: var(--accent-2); box-shadow: 0 0 12px rgba(0,180,216,0.3); }
 
-/* ========== CUSTOM CURSOR ========== */
-.custom-cursor { position: fixed; width: 24px; height: 24px; background: rgba(255,255,255,0.85); border: 2px solid rgba(0,180,216,0.6); border-radius: 50%; box-shadow: 0 0 12px rgba(0,180,216,0.4); pointer-events: none; z-index: 99999; transform: translate(-50%, -50%); transition: width 0.15s, height 0.15s, background 0.15s, border-color 0.15s; mix-blend-mode: normal; opacity: 1 !important; will-change: transform; }
-.custom-cursor.hover { width: 36px; height: 36px; background: rgba(255,255,255,0.95); border-color: rgba(157,78,221,0.7); box-shadow: 0 0 18px rgba(157,78,221,0.5); }
+/* ========== CUSTOM CURSOR (θα φαίνεται μόνο αυτός) ========== */
+.custom-cursor {
+  position: fixed;
+  width: 24px;
+  height: 24px;
+  background: rgba(255,255,255,0.85);
+  border: 2px solid rgba(0,180,216,0.6);
+  border-radius: 50%;
+  box-shadow: 0 0 12px rgba(0,180,216,0.4);
+  pointer-events: none;
+  z-index: 99999;
+  transform: translate(-50%, -50%);
+  transition: width 0.15s, height 0.15s, background 0.15s, border-color 0.15s;
+  mix-blend-mode: normal;
+  opacity: 1 !important;
+  will-change: transform;
+}
+.custom-cursor.hover {
+  width: 36px;
+  height: 36px;
+  background: rgba(255,255,255,0.95);
+  border-color: rgba(157,78,221,0.7);
+  box-shadow: 0 0 18px rgba(157,78,221,0.5);
+}
 
-/* ========== RESPONSIVE ========== */
+/* ========== RESPONSIVE (επαναφορά cursor σε κινητά) ========== */
 @media (max-width: 991px) {
-  html { cursor: auto; } body { cursor: auto; }
-  .custom-cursor { display: none; }
-  a, button, .btn, input, textarea, .social-card { cursor: auto !important; }
+  /* Επαναφορά του default cursor στις συσκευές αφής */
+  * {
+    cursor: auto !important;
+  }
+  .custom-cursor {
+    display: none;
+  }
+
   .about-timeline::before { left: 20px; }
   .tl-item, .tl-item.right { flex-direction: row; justify-content: flex-start; margin-bottom: 32px; }
   .tl-marker { order: -1; margin-right: 16px; margin-left: 0; z-index: 2; }
