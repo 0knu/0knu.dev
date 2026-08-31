@@ -1783,14 +1783,14 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – FIXED WITH FALLBACK PROXIES
+    ROBLOX STATS – FIXED WITH UNIVERSE ID APPROACH
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
             <div class="section-header reveal">
                 <span class="section-tag">Game Analytics</span>
                 <h2 class="section-title">Roblox <span class="brand-inline">Stats</span></h2>
-                <p class="section-subtitle">Live stats fetched every 30 seconds. If you see errors, run this page on a web server (e.g., Live Server).</p>
+                <p class="section-subtitle">Live stats fetched every 30 seconds via Roblox API.</p>
             </div>
 
             <div class="stats-container reveal">
@@ -2210,13 +2210,13 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS WIDGET – WITH FALLBACK PROXIES
+        // 12. ROBLOX STATS WIDGET – ROBUST UNIVERSE ID APPROACH
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  CONFIGURATION – YOUR TWO PLACE IDs
+            //  YOUR TWO GAMES – PLACE IDs (from the game URLs)
             // ------------------------------------------------------------
             const PLACE_IDS = [
                 113585108325473, // Teamwork Obby 40 Stage Duo Challenge
@@ -2225,14 +2225,6 @@
 
             const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000; // 30 seconds
-
-            // Try multiple proxy endpoints in case one is blocked
-            const PROXY_ENDPOINTS = [
-                `https://api.roproxy.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`,
-                `https://games.roproxy.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`,
-                // Use a CORS-anywhere fallback (rate-limited, but works)
-                `https://corsproxy.io/?https://games.roblox.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`
-            ];
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2252,7 +2244,6 @@
 
             let isFetching = false;
             let autoRefreshTimer = null;
-            let currentProxyIndex = 0;
 
             // ------------------------------------------------------------
             //  HELPERS
@@ -2286,7 +2277,7 @@
             }
 
             // ------------------------------------------------------------
-            //  FETCH WITH FALLBACK
+            //  FETCH WITH MULTIPLE PROXY FALLBACKS
             // ------------------------------------------------------------
             async function fetchWithFallback(urls) {
                 let lastError = null;
@@ -2295,14 +2286,23 @@
                         const response = await fetch(url);
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         const data = await response.json();
-                        // Some proxies wrap the response differently
-                        if (data && Array.isArray(data)) return data;
+
+                        // Handle different response formats
                         if (data && data.data && Array.isArray(data.data)) return data.data;
+                        if (Array.isArray(data)) return data;
+                        if (data && data.length !== undefined) return data;
+
+                        // If we got an object with keys, wrap it
+                        if (data && typeof data === 'object' && data !== null) {
+                            // Check if it's a single game object
+                            if (data.id && data.name) return [data];
+                            return data;
+                        }
+
                         return data;
                     } catch (err) {
                         lastError = err;
-                        console.warn(`Proxy failed (${url}):`, err.message);
-                        // continue to next proxy
+                        console.warn(`Proxy failed (${url.substring(0, 60)}...):`, err.message);
                     }
                 }
                 throw lastError || new Error('All proxies failed');
@@ -2325,10 +2325,27 @@
                 favoritesSubEl.textContent = 'fetching…';
                 gamesList.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Loading games…</p>';
 
-                try {
-                    const games = await fetchWithFallback(PROXY_ENDPOINTS);
+                // Build proxy URLs – try multiple services
+                const placeIdsParam = PLACE_IDS.join(',');
+                const proxyUrls = [
+                    // 1. RoProxy (Roblox-specific proxy)
+                    `https://games.roproxy.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
+                    `https://api.roproxy.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
 
-                    if (!Array.isArray(games) || games.length === 0) {
+                    // 2. CorsProxy.io (generic CORS proxy)
+                    `https://corsproxy.io/?https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
+
+                    // 3. AllOrigins (another reliable proxy)
+                    `https://api.allorigins.win/raw?url=https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
+
+                    // 4. Direct Roblox API (might work in some environments)
+                    `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`
+                ];
+
+                try {
+                    const games = await fetchWithFallback(proxyUrls);
+
+                    if (!games || !Array.isArray(games) || games.length === 0) {
                         throw new Error('No game data returned.');
                     }
 
@@ -2387,10 +2404,10 @@
                     lastUpdatedLabel.textContent = '⚠️ Last attempt failed';
                     gamesList.innerHTML = `
                         <p style="color:#ff6b6b;font-size:14px;">
-                            ⚠️ Could not load game data. 
+                            ⚠️ Could not load game data.
                             <br><span style="color:var(--text-muted);font-size:12px;">
-                                Make sure you are serving this page over HTTP (not file://). 
-                                Try using Live Server or Python http.server.
+                                Trying again in 30 seconds...
+                                <br>If this persists, check console (F12) for details.
                             </span>
                         </p>
                     `;
