@@ -1658,7 +1658,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – WITH YOUR GOOGLE APPS SCRIPT PROXY (REAL DATA)
+    ROBLOX STATS – WORKING WITH PROXY CHAIN
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -2074,16 +2074,25 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – REAL DATA VIA GOOGLE APPS SCRIPT
+        // 12. ROBLOX STATS – WORKING PROXY CHAIN
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  🔧 PUT YOUR GOOGLE APPS SCRIPT URL HERE
+            //  YOUR GOOGLE APPS SCRIPT URL
             // ------------------------------------------------------------
-            const PROXY_URL =
+            const APPS_SCRIPT_URL =
                 'https://script.google.com/macros/s/AKfycbwSSS0lz1GVD11Ftb2J_OfeYOhdobwkxqB3eOloTQ9RBrrBbXUUFCfDi-LFUXfvOucq/exec';
+
+            // Proxy chain – we use allorigins.win as a CORS proxy
+            // It will fetch your Apps Script URL and return the data with proper CORS headers
+            const PROXY_URLS = [
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(APPS_SCRIPT_URL)}`,
+                `https://api.allorigins.win/get?url=${encodeURIComponent(APPS_SCRIPT_URL)}`,
+                // Fallback: try directly (might work if CORS is fixed)
+                APPS_SCRIPT_URL
+            ];
 
             const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000;
@@ -2151,7 +2160,47 @@
             }
 
             // ------------------------------------------------------------
-            //  RENDER STATS – ALWAYS FRESH FROM PROXY
+            //  FETCH WITH PROXY CHAIN
+            // ------------------------------------------------------------
+            async function fetchWithProxy(urls) {
+                let lastError = null;
+                for (const url of urls) {
+                    try {
+                        const response = await fetch(url);
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                        let data = await response.json();
+
+                        // Handle allorigins 'get' format (has 'contents' field)
+                        if (data.contents) {
+                            try {
+                                data = JSON.parse(data.contents);
+                            } catch (e) {
+                                throw new Error('Failed to parse allorigins response');
+                            }
+                        }
+
+                        // The Apps Script returns { data: [game1, game2] }
+                        if (data && data.data && Array.isArray(data.data)) {
+                            return data.data;
+                        }
+                        if (Array.isArray(data)) {
+                            return data;
+                        }
+                        if (data && data.id && data.name) {
+                            return [data];
+                        }
+                        return data;
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`Proxy failed (${url.substring(0, 60)}...):`, err.message);
+                    }
+                }
+                throw lastError || new Error('All proxies failed');
+            }
+
+            // ------------------------------------------------------------
+            //  RENDER STATS
             // ------------------------------------------------------------
             function renderStats(games) {
                 if (!Array.isArray(games) || games.length === 0) {
@@ -2178,7 +2227,7 @@
             }
 
             // ------------------------------------------------------------
-            //  FETCH FROM GOOGLE APPS SCRIPT (REAL DATA)
+            //  FETCH LIVE STATS
             // ------------------------------------------------------------
             async function fetchLiveStats() {
                 if (isFetching) return;
@@ -2189,20 +2238,9 @@
                 countdownTimer.textContent = '⟳';
 
                 try {
-                    const response = await fetch(PROXY_URL);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-
-                    const data = await response.json();
-
-                    // The proxy returns { data: [game1, game2] }
-                    const games = data?.data || data;
-                    if (!Array.isArray(games) || games.length === 0) {
-                        throw new Error('No game data returned');
-                    }
-
+                    const games = await fetchWithProxy(PROXY_URLS);
                     renderStats(games);
                     resetCountdown();
-
                 } catch (err) {
                     console.error('❌ Error fetching stats:', err);
 
@@ -2241,7 +2279,6 @@
             function init() {
                 renderContributions();
 
-                // Show loading state
                 visitsValueEl.textContent = '—';
                 favoritesValueEl.textContent = '—';
                 visitsSubEl.textContent = 'loading…';
