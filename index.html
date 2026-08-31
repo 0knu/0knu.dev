@@ -905,6 +905,8 @@
             align-items: center;
             gap: 6px;
             font-family: inherit;
+            min-width: 110px;
+            justify-content: center;
         }
         .roblox-widget .refresh-btn:hover {
             background: rgba(255, 255, 255, 0.10);
@@ -930,6 +932,13 @@
             to {
                 transform: rotate(360deg);
             }
+        }
+        .roblox-widget .refresh-btn .countdown {
+            font-size: 11px;
+            color: var(--text-muted);
+            min-width: 32px;
+            display: inline-block;
+            text-align: center;
         }
 
         .roblox-widget .stats-grid {
@@ -988,6 +997,7 @@
             line-height: 1.2;
             position: relative;
             z-index: 1;
+            cursor: default;
         }
         .roblox-widget .stat-card .sub {
             font-size: 11px;
@@ -996,6 +1006,7 @@
             position: relative;
             z-index: 1;
             opacity: 0.7;
+            cursor: default;
         }
 
         .roblox-widget .stat-card.contributions .value {
@@ -1023,24 +1034,6 @@
         }
         .roblox-widget .stat-card.error .label {
             color: #ff6b6b;
-        }
-
-        .roblox-widget .stat-card.loading .value {
-            color: transparent;
-            background: linear-gradient(90deg, rgba(255, 255, 255, 0.03) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.03) 75%);
-            background-size: 200% 100%;
-            animation: shimmer 1.5s ease-in-out infinite;
-            border-radius: 6px;
-            width: 70%;
-            height: 34px;
-        }
-        @keyframes shimmer {
-            0% {
-                background-position: 200% 0;
-            }
-            100% {
-                background-position: -200% 0;
-            }
         }
 
         /* Per‑game breakdown inside widget */
@@ -1784,7 +1777,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – FAST LOADING OPTIMIZED
+    ROBLOX STATS – FAST LOADING + COUNTDOWN TIMER
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1808,6 +1801,7 @@
                         <button class="refresh-btn" id="refreshBtn">
                             <span class="spinner hidden" id="refreshSpinner"></span>
                             <span id="refreshBtnText">⟳ Refresh</span>
+                            <span class="countdown" id="countdownTimer">30s</span>
                         </button>
                     </div>
                 </header>
@@ -2207,7 +2201,7 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – OPTIMIZED FAST LOADING
+        // 12. ROBLOX STATS – FAST + COUNTDOWN TIMER
         // ============================================================
         (function() {
             'use strict';
@@ -2243,13 +2237,16 @@
             const refreshBtn = document.getElementById('refreshBtn');
             const refreshSpinner = document.getElementById('refreshSpinner');
             const refreshBtnText = document.getElementById('refreshBtnText');
+            const countdownTimer = document.getElementById('countdownTimer');
             const cardVisits = document.getElementById('cardVisits');
             const cardFavorites = document.getElementById('cardFavorites');
             const gamesList = document.getElementById('gamesList');
 
             let isFetching = false;
             let autoRefreshTimer = null;
+            let countdownInterval = null;
             let statsLoaded = false;
+            let remainingSeconds = 30;
 
             // ------------------------------------------------------------
             //  HELPERS
@@ -2272,6 +2269,40 @@
             }
 
             // ------------------------------------------------------------
+            //  COUNTDOWN TIMER
+            // ------------------------------------------------------------
+            function startCountdown() {
+                if (countdownInterval) clearInterval(countdownInterval);
+                remainingSeconds = Math.floor(REFRESH_INTERVAL_MS / 1000);
+
+                function updateCountdown() {
+                    countdownTimer.textContent = remainingSeconds + 's';
+                    if (remainingSeconds > 0) {
+                        remainingSeconds--;
+                    } else {
+                        // Reset at 0 – will be reset after refresh
+                    }
+                }
+
+                updateCountdown();
+                countdownInterval = setInterval(updateCountdown, 1000);
+            }
+
+            function resetCountdown() {
+                if (countdownInterval) {
+                    clearInterval(countdownInterval);
+                    countdownInterval = null;
+                }
+                remainingSeconds = Math.floor(REFRESH_INTERVAL_MS / 1000);
+                countdownTimer.textContent = remainingSeconds + 's';
+                countdownInterval = setInterval(() => {
+                    remainingSeconds--;
+                    if (remainingSeconds < 0) remainingSeconds = 0;
+                    countdownTimer.textContent = remainingSeconds + 's';
+                }, 1000);
+            }
+
+            // ------------------------------------------------------------
             //  LOCAL STORAGE CACHE
             // ------------------------------------------------------------
             function getCachedData() {
@@ -2288,7 +2319,7 @@
             }
 
             // ------------------------------------------------------------
-            //  RENDER STATS (with loading state control)
+            //  RENDER STATS
             // ------------------------------------------------------------
             function renderStats(games, isFallback) {
                 if (!Array.isArray(games) || games.length === 0) {
@@ -2408,12 +2439,14 @@
                 isFetching = true;
 
                 refreshSpinner.classList.remove('hidden');
-                refreshBtnText.textContent = 'Updating…';
-                refreshBtn.disabled = true;
+                refreshBtnText.textContent = '⟳ Updating…';
+                countdownTimer.textContent = '⟳';
 
                 try {
                     const games = await fetchFastest(PROXY_URLS, 4000);
                     renderStats(games, false);
+                    // Reset countdown after successful fetch
+                    resetCountdown();
                 } catch (err) {
                     console.warn('Fastest proxy failed:', err.message);
                     // Use cached data if we don't have stats loaded yet
@@ -2427,18 +2460,30 @@
                             favoritesValueEl.textContent = '—';
                             visitsSubEl.textContent = '⚠️ No data';
                             favoritesSubEl.textContent = '⚠️ No data';
-                            lastUpdatedLabel.textContent = '⚠️ Click to edit';
+                            lastUpdatedLabel.textContent = '⚠️ No data';
                             cardVisits.classList.add('error');
                             cardFavorites.classList.add('error');
                             gamesList.innerHTML =
-                                `<p style="color:var(--text-muted);font-size:14px;">Click the numbers above to set your stats.</p>`;
+                                `<p style="color:var(--text-muted);font-size:14px;">Could not load stats. Retrying...</p>`;
+                        }
+                    } else {
+                        // We already have stats loaded, just update the timestamp
+                        const cached = getCachedData();
+                        if (cached && cached.games && cached.games.length) {
+                            visitsSubEl.textContent = `⚠️ Cached ${getTimeStr()}`;
+                            favoritesSubEl.textContent = `⚠️ Cached ${getTimeStr()}`;
+                            lastUpdatedLabel.textContent = `Using cached data (${getTimeStr()})`;
                         }
                     }
+                    // Reset countdown even on error
+                    resetCountdown();
                 } finally {
                     isFetching = false;
                     refreshSpinner.classList.add('hidden');
                     refreshBtnText.textContent = '⟳ Refresh';
-                    refreshBtn.disabled = false;
+                    if (countdownTimer.textContent === '⟳') {
+                        countdownTimer.textContent = remainingSeconds + 's';
+                    }
                 }
             }
 
@@ -2447,71 +2492,6 @@
             // ------------------------------------------------------------
             function renderContributions() {
                 contributionsEl.textContent = formatNumber(TOTAL_CONTRIBUTIONS);
-            }
-
-            // ------------------------------------------------------------
-            //  MANUAL EDIT – allow direct editing
-            // ------------------------------------------------------------
-            function enableManualEdit() {
-                visitsValueEl.contentEditable = true;
-                favoritesValueEl.contentEditable = true;
-                visitsValueEl.style.cursor = 'pointer';
-                favoritesValueEl.style.cursor = 'pointer';
-
-                function saveManual() {
-                    const visits = parseInt(visitsValueEl.textContent.replace(/,/g, ''), 10);
-                    const favs = parseInt(favoritesValueEl.textContent.replace(/,/g, ''), 10);
-                    if (!isNaN(visits) && !isNaN(favs)) {
-                        const fakeGames = [
-                            { name: 'Teamwork Obby', visits: Math.round(visits * 0.6), favoritedCount: Math.round(favs *
-                                    0.6) },
-                            { name: 'Sweet Tooth Bakery', visits: Math.round(visits * 0.4), favoritedCount: Math.round(
-                                    favs * 0.4) }
-                        ];
-                        setCachedData({ games: fakeGames, timestamp: Date.now() });
-                        statsLoaded = true;
-                        let rowsHtml = '';
-                        fakeGames.forEach((game, index) => {
-                            rowsHtml += `
-                                <div class="game-row">
-                                    <span class="game-name">${truncateName(game.name, 35)}</span>
-                                    <span class="game-stat">
-                                        <span class="label-sm">Visits</span>
-                                        <strong>${formatNumber(game.visits)}</strong>
-                                    </span>
-                                    <span class="game-stat">
-                                        <span class="label-sm">Favorites</span>
-                                        <strong>${formatNumber(game.favoritedCount)}</strong>
-                                    </span>
-                                    <span class="game-stat" style="color:var(--text-muted);font-size:12px;">
-                                        #${index + 1}
-                                    </span>
-                                </div>
-                            `;
-                        });
-                        gamesList.innerHTML = rowsHtml;
-                        visitsSubEl.textContent = '✅ Manually set';
-                        favoritesSubEl.textContent = '✅ Manually set';
-                        lastUpdatedLabel.textContent = `Manual ${getTimeStr()}`;
-                        cardVisits.classList.remove('error');
-                        cardFavorites.classList.remove('error');
-                    }
-                }
-
-                visitsValueEl.addEventListener('blur', saveManual);
-                favoritesValueEl.addEventListener('blur', saveManual);
-                visitsValueEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault();
-                        visitsValueEl.blur(); } });
-                favoritesValueEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault();
-                        favoritesValueEl.blur(); } });
-                visitsSubEl.style.cursor = 'pointer';
-                favoritesSubEl.style.cursor = 'pointer';
-                visitsSubEl.title = 'Click to edit total visits';
-                favoritesSubEl.title = 'Click to edit total favorites';
-                visitsSubEl.addEventListener('click', () => { visitsValueEl.focus();
-                    visitsValueEl.select(); });
-                favoritesSubEl.addEventListener('click', () => { favoritesValueEl.focus();
-                    favoritesValueEl.select(); });
             }
 
             // ------------------------------------------------------------
@@ -2529,6 +2509,7 @@
                 if (autoRefreshTimer) clearInterval(autoRefreshTimer);
                 autoRefreshTimer = setInterval(() => {
                     fetchLiveStats(false);
+                    // Countdown is reset inside fetchLiveStats on success/error
                 }, REFRESH_INTERVAL_MS);
             }
 
@@ -2537,7 +2518,6 @@
             // ------------------------------------------------------------
             function init() {
                 renderContributions();
-                enableManualEdit();
 
                 // Show cached data immediately (if available)
                 const cached = getCachedData();
@@ -2552,12 +2532,17 @@
                     gamesList.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Loading stats…</p>';
                 }
 
+                // Start countdown
+                startCountdown();
+
                 // Then fetch live in background
                 fetchLiveStats(false);
                 startAutoRefresh();
 
                 refreshBtn.addEventListener('click', () => {
                     refreshAll();
+                    // Reset countdown immediately
+                    resetCountdown();
                     startAutoRefresh();
                 });
             }
