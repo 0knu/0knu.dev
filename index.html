@@ -135,7 +135,7 @@
         }
 
         /* ============================================================
-           PRELOADER – SHORTER (faster load)
+           PRELOADER – SHORTER
         ============================================================ */
         #preloader {
             position: fixed;
@@ -804,7 +804,7 @@
         }
 
         /* ============================================================
-           ROBLOX STATS WIDGET – USING YOUR GOOGLE APPS SCRIPT
+           ROBLOX STATS WIDGET
         ============================================================ */
         .roblox-widget .stats-container {
             max-width: 820px;
@@ -1658,7 +1658,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – USING YOUR GOOGLE APPS SCRIPT (REAL DATA)
+    ROBLOX STATS – WITH YOUR GOOGLE APPS SCRIPT PROXY (REAL DATA)
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1711,8 +1711,6 @@
                     </div>
 
                 </div>
-
-                <!-- No per‑game breakdown -->
             </div>
         </div>
     </section>
@@ -1822,11 +1820,11 @@
     </footer>
 
     <!-- ============================================================
-       SCRIPTS – USING YOUR GOOGLE APPS SCRIPT PROXY
+       SCRIPTS
     ============================================================ -->
     <script>
         // ============================================================
-        // 1. PRELOADER – faster (max 800ms)
+        // 1. PRELOADER
         // ============================================================
         (function() {
             const preloader = document.getElementById('preloader');
@@ -1866,7 +1864,7 @@
         }
 
         // ============================================================
-        // 3. CUSTOM CURSOR – CLEAN
+        // 3. CUSTOM CURSOR
         // ============================================================
         function initCursor() {
             const cursor = document.getElementById('customCursor');
@@ -1901,7 +1899,7 @@
         }
 
         // ============================================================
-        // 4. TYPING EFFECT FOR TERMINAL – FIXED (no duplicate labels)
+        // 4. TYPING EFFECT
         // ============================================================
         function initTypingEffect() {
             const terminalBody = document.getElementById('terminalBody');
@@ -2076,13 +2074,13 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – USING YOUR GOOGLE APPS SCRIPT PROXY
+        // 12. ROBLOX STATS – REAL DATA VIA GOOGLE APPS SCRIPT
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  YOUR GOOGLE APPS SCRIPT URL
+            //  🔧 PUT YOUR GOOGLE APPS SCRIPT URL HERE
             // ------------------------------------------------------------
             const PROXY_URL =
                 'https://script.google.com/macros/s/AKfycbwSSS0lz1GVD11Ftb2J_OfeYOhdobwkxqB3eOloTQ9RBrrBbXUUFCfDi-LFUXfvOucq/exec';
@@ -2109,7 +2107,6 @@
             let isFetching = false;
             let autoRefreshTimer = null;
             let countdownInterval = null;
-            let statsLoaded = false;
             let remainingSeconds = 30;
 
             // ------------------------------------------------------------
@@ -2154,25 +2151,9 @@
             }
 
             // ------------------------------------------------------------
-            //  CACHE
+            //  RENDER STATS – ALWAYS FRESH FROM PROXY
             // ------------------------------------------------------------
-            function getCachedData() {
-                try {
-                    const raw = localStorage.getItem('robloxStatsCache');
-                    return raw ? JSON.parse(raw) : null;
-                } catch { return null; }
-            }
-
-            function setCachedData(data) {
-                try {
-                    localStorage.setItem('robloxStatsCache', JSON.stringify(data));
-                } catch {}
-            }
-
-            // ------------------------------------------------------------
-            //  RENDER STATS
-            // ------------------------------------------------------------
-            function renderStats(games, isFallback, timestamp) {
+            function renderStats(games) {
                 if (!Array.isArray(games) || games.length === 0) {
                     throw new Error('Invalid game data');
                 }
@@ -2187,23 +2168,17 @@
                 visitsValueEl.textContent = formatNumber(totalVisits);
                 favoritesValueEl.textContent = formatNumber(totalFavorites);
 
-                const timeStr = timestamp || getTimeStr();
-                const label = isFallback ? '🔄 Cached' : '🔄 Live';
-                visitsSubEl.textContent = `${label} ${timeStr}`;
-                favoritesSubEl.textContent = `${label} ${timeStr}`;
-                lastUpdatedLabel.textContent = isFallback ? `Cached data (${timeStr})` : `Updated ${timeStr}`;
+                const timeStr = getTimeStr();
+                visitsSubEl.textContent = `🔄 Live ${timeStr}`;
+                favoritesSubEl.textContent = `🔄 Live ${timeStr}`;
+                lastUpdatedLabel.textContent = `Updated ${timeStr}`;
 
                 cardVisits.classList.remove('error');
                 cardFavorites.classList.remove('error');
-                statsLoaded = true;
-
-                if (!isFallback) {
-                    setCachedData({ games, timestamp: Date.now() });
-                }
             }
 
             // ------------------------------------------------------------
-            //  FETCH FROM GOOGLE APPS SCRIPT
+            //  FETCH FROM GOOGLE APPS SCRIPT (REAL DATA)
             // ------------------------------------------------------------
             async function fetchLiveStats() {
                 if (isFetching) return;
@@ -2225,30 +2200,19 @@
                         throw new Error('No game data returned');
                     }
 
-                    renderStats(games, false, getTimeStr());
+                    renderStats(games);
                     resetCountdown();
 
                 } catch (err) {
-                    console.warn('Proxy failed, using cached data:', err.message);
+                    console.error('❌ Error fetching stats:', err);
 
-                    const cached = getCachedData();
-                    if (cached && cached.games && cached.games.length) {
-                        const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
-                            hour: '2-digit',
-                            minute: '2-digit',
-                            second: '2-digit'
-                        });
-                        renderStats(cached.games, true, timeStr);
-                    } else {
-                        // Fallback – shouldn't happen since we pre-seeded
-                        visitsValueEl.textContent = '—';
-                        favoritesValueEl.textContent = '—';
-                        visitsSubEl.textContent = '⚠️ No data';
-                        favoritesSubEl.textContent = '⚠️ No data';
-                        lastUpdatedLabel.textContent = '⚠️ No data';
-                        cardVisits.classList.add('error');
-                        cardFavorites.classList.add('error');
-                    }
+                    visitsValueEl.textContent = '⚠️ Error';
+                    favoritesValueEl.textContent = '⚠️ Error';
+                    visitsSubEl.textContent = 'retrying…';
+                    favoritesSubEl.textContent = 'retrying…';
+                    lastUpdatedLabel.textContent = '⚠️ Failed to fetch';
+                    cardVisits.classList.add('error');
+                    cardFavorites.classList.add('error');
                     resetCountdown();
                 } finally {
                     isFetching = false;
@@ -2277,21 +2241,11 @@
             function init() {
                 renderContributions();
 
-                // Show cached data first
-                const cached = getCachedData();
-                if (cached && cached.games && cached.games.length) {
-                    const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
-                        hour: '2-digit',
-                        minute: '2-digit',
-                        second: '2-digit'
-                    });
-                    renderStats(cached.games, true, timeStr);
-                } else {
-                    visitsValueEl.textContent = '—';
-                    favoritesValueEl.textContent = '—';
-                    visitsSubEl.textContent = 'loading…';
-                    favoritesSubEl.textContent = 'loading…';
-                }
+                // Show loading state
+                visitsValueEl.textContent = '—';
+                favoritesValueEl.textContent = '—';
+                visitsSubEl.textContent = 'loading…';
+                favoritesSubEl.textContent = 'loading…';
 
                 startCountdown();
                 fetchLiveStats();
