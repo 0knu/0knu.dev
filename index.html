@@ -15,7 +15,7 @@
 
     <style>
         /* ============================================================
-           RESET & VARIABLES – SAME AS BEFORE
+           RESET & VARIABLES – PURE, REFINED
         ============================================================ */
         *,
         *::before,
@@ -810,7 +810,7 @@
         }
 
         /* ============================================================
-           ROBLOX STATS WIDGET – NO PER‑GAME BREAKDOWN
+           ROBLOX STATS WIDGET – NO PER-GAME BREAKDOWN + ROBUST PROXIES
         ============================================================ */
         .roblox-widget .stats-container {
             max-width: 820px;
@@ -1676,7 +1676,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – ONLY TOP 3 (NO PER-GAME BREAKDOWN)
+    ROBLOX STATS – UPDATED WITH MORE PROXIES + CACHE BUSTING
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1730,7 +1730,7 @@
 
                 </div>
 
-                <!-- No per‑game breakdown – removed -->
+                <!-- No per‑game breakdown -->
             </div>
         </div>
     </section>
@@ -1840,7 +1840,7 @@
     </footer>
 
     <!-- ============================================================
-       SCRIPTS – FAST & OPTIMIZED
+       SCRIPTS – FAST & OPTIMIZED + ROBUST PROXY CHAIN
     ============================================================ -->
     <script>
         // ============================================================
@@ -2094,7 +2094,7 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – NO PER-GAME BREAKDOWN
+        // 12. ROBLOX STATS – ROBUST WITH 5 PROXIES + CACHE BUSTING
         // ============================================================
         (function() {
             'use strict';
@@ -2109,11 +2109,25 @@
             const ROBLOX_API_URL =
                 `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`;
 
+            // 5 different proxy services – more robust
+            const PROXY_RAW = `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`;
+            const PROXY_GET = `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`;
+            const PROXY_CORS = `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`;
+            const PROXY_THING = `https://thingproxy.freeboard.io/fetch/${ROBLOX_API_URL}`;
+            const PROXY_CORS_ANYWHERE = `https://cors-anywhere.herokuapp.com/${ROBLOX_API_URL}`;
+
+            // For cache-busting, we append a random param to the URL
+            function addCacheBust(url) {
+                const separator = url.includes('?') ? '&' : '?';
+                return `${url}${separator}_=${Date.now()}`;
+            }
+
             const PROXY_URLS = [
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`,
-                `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`,
-                `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`,
-                ROBLOX_API_URL
+                addCacheBust(PROXY_RAW),
+                addCacheBust(PROXY_GET),
+                addCacheBust(PROXY_CORS),
+                addCacheBust(PROXY_THING),
+                addCacheBust(PROXY_CORS_ANYWHERE)
             ];
 
             // ------------------------------------------------------------
@@ -2198,7 +2212,7 @@
             // ------------------------------------------------------------
             //  RENDER STATS – only totals
             // ------------------------------------------------------------
-            function renderStats(games, isFallback) {
+            function renderStats(games, isFallback, timestamp) {
                 if (!Array.isArray(games) || games.length === 0) {
                     throw new Error('Invalid game data');
                 }
@@ -2213,10 +2227,11 @@
                 visitsValueEl.textContent = formatNumber(totalVisits);
                 favoritesValueEl.textContent = formatNumber(totalFavorites);
 
-                const label = isFallback ? '⚠️ Cached' : '🔄';
-                visitsSubEl.textContent = `${label} ${getTimeStr()}`;
-                favoritesSubEl.textContent = `${label} ${getTimeStr()}`;
-                lastUpdatedLabel.textContent = isFallback ? 'Using cached data' : `Updated ${getTimeStr()}`;
+                const timeStr = timestamp || getTimeStr();
+                const label = isFallback ? '⚠️ Cached' : '🔄 Live';
+                visitsSubEl.textContent = `${label} ${timeStr}`;
+                favoritesSubEl.textContent = `${label} ${timeStr}`;
+                lastUpdatedLabel.textContent = isFallback ? `Using cached data (${timeStr})` : `Updated ${timeStr}`;
 
                 cardVisits.classList.remove('error');
                 cardFavorites.classList.remove('error');
@@ -2227,9 +2242,9 @@
             }
 
             // ------------------------------------------------------------
-            //  PARALLEL FETCH – fastest wins
+            //  PARALLEL FETCH – fastest wins, with cache-busting
             // ------------------------------------------------------------
-            function fetchFastest(urls, timeout = 4000) {
+            function fetchFastest(urls, timeout = 3000) {
                 return new Promise((resolve, reject) => {
                     let resolved = false;
                     const errors = [];
@@ -2240,13 +2255,16 @@
 
                     const promises = urls.map(url =>
                         fetch(url, {
-                            headers: { 'User-Agent': 'Mozilla/5.0' }
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                            }
                         })
                         .then(res => {
                             if (!res.ok) throw new Error(`HTTP ${res.status}`);
                             return res.json();
                         })
                         .then(data => {
+                            // Parse different response formats
                             if (data.contents) {
                                 try { data = JSON.parse(data.contents); } catch {}
                             }
@@ -2295,15 +2313,23 @@
                 countdownTimer.textContent = '⟳';
 
                 try {
-                    const games = await fetchFastest(PROXY_URLS, 4000);
-                    renderStats(games, false);
+                    const games = await fetchFastest(PROXY_URLS, 3000);
+                    renderStats(games, false, getTimeStr());
                     resetCountdown();
+                    // Update the "lastUpdated" label to show it's live
+                    lastUpdatedLabel.textContent = `Updated ${getTimeStr()}`;
                 } catch (err) {
-                    console.warn('Fastest proxy failed:', err.message);
+                    console.warn('All proxies failed:', err.message);
+                    // Use cached data if we don't have stats loaded yet
                     if (!statsLoaded) {
                         const cached = getCachedData();
                         if (cached && cached.games && cached.games.length) {
-                            renderStats(cached.games, true);
+                            const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            renderStats(cached.games, true, timeStr);
                         } else {
                             visitsValueEl.textContent = '—';
                             favoritesValueEl.textContent = '—';
@@ -2314,11 +2340,17 @@
                             cardFavorites.classList.add('error');
                         }
                     } else {
+                        // We already have stats loaded, just update the timestamp on the cache label
                         const cached = getCachedData();
                         if (cached && cached.games && cached.games.length) {
-                            visitsSubEl.textContent = `⚠️ Cached ${getTimeStr()}`;
-                            favoritesSubEl.textContent = `⚠️ Cached ${getTimeStr()}`;
-                            lastUpdatedLabel.textContent = `Using cached data (${getTimeStr()})`;
+                            const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            visitsSubEl.textContent = `⚠️ Cached ${timeStr}`;
+                            favoritesSubEl.textContent = `⚠️ Cached ${timeStr}`;
+                            lastUpdatedLabel.textContent = `Using cached data (${timeStr})`;
                         }
                     }
                     resetCountdown();
@@ -2351,7 +2383,12 @@
 
                 const cached = getCachedData();
                 if (cached && cached.games && cached.games.length) {
-                    renderStats(cached.games, true);
+                    const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    renderStats(cached.games, true, timeStr);
                 } else {
                     visitsValueEl.textContent = '—';
                     favoritesValueEl.textContent = '—';
