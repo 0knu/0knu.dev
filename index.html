@@ -804,7 +804,7 @@
         }
 
         /* ============================================================
-           ROBLOX STATS WIDGET – FAST VERSION
+           ROBLOX STATS WIDGET – FAST VERSION (NO PURPLE GLOW)
         ============================================================ */
         .roblox-widget .stats-container {
             max-width: 820px;
@@ -817,7 +817,7 @@
             transition: border-color 0.25s;
         }
         .roblox-widget .stats-container:hover {
-            border-color: rgba(120, 80, 255, 0.25);
+            border-color: rgba(255, 255, 255, 0.08);
         }
 
         .roblox-widget .stats-header {
@@ -842,7 +842,7 @@
             font-size: 22px;
             font-weight: 600;
             letter-spacing: -0.3px;
-            background: linear-gradient(135deg, #7c5cfc, #5c8cfc);
+            background: linear-gradient(135deg, #ffffff, #aaaaaa);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
@@ -945,7 +945,7 @@
         }
 
         .roblox-widget .stat-card {
-            background: rgba(255, 255, 255, 0.04);
+            background: rgba(255, 255, 255, 0.03);
             border: 1px solid rgba(255, 255, 255, 0.06);
             border-radius: 10px;
             padding: 20px 22px 18px;
@@ -958,20 +958,11 @@
             cursor: default;
         }
         .roblox-widget .stat-card:hover {
-            background: rgba(255, 255, 255, 0.07);
+            background: rgba(255, 255, 255, 0.06);
             border-color: rgba(255, 255, 255, 0.10);
             transform: translateY(-2px);
         }
-        .roblox-widget .stat-card:first-child::before {
-            content: '';
-            position: absolute;
-            top: -50%;
-            left: -50%;
-            width: 200%;
-            height: 200%;
-            background: radial-gradient(circle at 30% 40%, rgba(124, 92, 252, 0.06), transparent 60%);
-            pointer-events: none;
-        }
+        /* REMOVED the purple glow from the first card */
 
         .roblox-widget .stat-card .label {
             font-size: 12px;
@@ -1658,7 +1649,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – FAST VERSION (NO PER-GAME BREAKDOWN)
+    ROBLOX STATS – FAST VERSION (NO PURPLE GLOW)
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1711,8 +1702,6 @@
                     </div>
 
                 </div>
-
-                <!-- NO PER-GAME BREAKDOWN – REMOVED FOR SPEED -->
             </div>
         </div>
     </section>
@@ -2076,7 +2065,7 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – FAST VERSION (NO PER-GAME BREAKDOWN)
+        // 12. ROBLOX STATS – FAST VERSION (NO PURPLE GLOW)
         // ============================================================
         (function() {
             'use strict';
