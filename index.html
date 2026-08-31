@@ -1783,14 +1783,14 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – NOW WITH YOUR OWN PROXY (real live data)
+    ROBLOX STATS – FINAL VERSION WITH WORKING PROXY CHAIN
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
             <div class="section-header reveal">
                 <span class="section-tag">Game Analytics</span>
                 <h2 class="section-title">Roblox <span class="brand-inline">Stats</span></h2>
-                <p class="section-subtitle">Live stats fetched every 30 seconds from your own proxy – no more errors!</p>
+                <p class="section-subtitle">Live stats – automatically refreshes every 30 seconds.</p>
             </div>
 
             <div class="stats-container reveal">
@@ -2210,18 +2210,38 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS WIDGET – USING YOUR OWN PROXY
+        // 12. ROBLOX STATS – THE FINAL WORKING VERSION
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  CONFIG – YOUR PROXY URL
-            //  (pointing to the PHP file you created)
+            //  YOUR UNIVERSE IDs (already resolved)
             // ------------------------------------------------------------
-            const PROXY_URL = 'https://www.0knu.dev/roblox-proxy.php';
+            const UNIVERSE_IDS = [4878482150, 5727173727];
             const TOTAL_CONTRIBUTIONS = 2;
-            const REFRESH_INTERVAL_MS = 30000; // 30 seconds
+            const REFRESH_INTERVAL_MS = 30000;
+
+            // Roblox API endpoint
+            const ROBLOX_API_URL =
+                `https://games.roblox.com/v1/games?universeIds=${UNIVERSE_IDS.join(',')}`;
+
+            // ------------------------------------------------------------
+            //  PROXY CHAIN – in order of reliability
+            // ------------------------------------------------------------
+            function buildProxyUrls() {
+                const encoded = encodeURIComponent(ROBLOX_API_URL);
+                return [
+                    // 1. allorigins.win raw – currently the most reliable
+                    `https://api.allorigins.win/raw?url=${encoded}`,
+                    // 2. allorigins.win get (parses JSON)
+                    `https://api.allorigins.win/get?url=${encoded}`,
+                    // 3. corsproxy.io fallback
+                    `https://corsproxy.io/?${encoded}`,
+                    // 4. direct (last hope)
+                    ROBLOX_API_URL
+                ];
+            }
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2274,7 +2294,95 @@
             }
 
             // ------------------------------------------------------------
-            //  FETCH & RENDER LIVE STATS VIA YOUR PROXY
+            //  FETCH WITH PROXY CHAIN
+            // ------------------------------------------------------------
+            async function fetchWithProxyChain(urls) {
+                let lastError = null;
+                for (const url of urls) {
+                    try {
+                        const response = await fetch(url, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                            }
+                        });
+                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+
+                        let data = await response.json();
+
+                        // Handle allorigins 'get' format
+                        if (data.contents) {
+                            try {
+                                data = JSON.parse(data.contents);
+                            } catch (e) {
+                                throw new Error('Failed to parse allorigins response');
+                            }
+                        }
+
+                        // Extract games array
+                        if (data && data.data && Array.isArray(data.data)) return data.data;
+                        if (Array.isArray(data)) return data;
+                        if (data && data.id && data.name) return [data];
+                        return data;
+                    } catch (err) {
+                        lastError = err;
+                        console.warn(`Proxy failed (${url.substring(0, 50)}...):`, err.message);
+                    }
+                }
+                throw lastError || new Error('All proxies failed');
+            }
+
+            // ------------------------------------------------------------
+            //  RENDER STATS FROM DATA
+            // ------------------------------------------------------------
+            function renderStats(games) {
+                if (!Array.isArray(games) || games.length === 0) {
+                    throw new Error('Invalid game data');
+                }
+
+                let totalVisits = 0;
+                let totalFavorites = 0;
+                let rowsHtml = '';
+
+                games.forEach((game, index) => {
+                    const visits = game.visits ?? 0;
+                    const favorites = game.favoritedCount ?? 0;
+                    totalVisits += visits;
+                    totalFavorites += favorites;
+
+                    const name = game.name || `Game ${index + 1}`;
+                    rowsHtml += `
+                        <div class="game-row">
+                            <span class="game-name">${truncateName(name, 35)}</span>
+                            <span class="game-stat">
+                                <span class="label-sm">Visits</span>
+                                <strong>${formatNumber(visits)}</strong>
+                            </span>
+                            <span class="game-stat">
+                                <span class="label-sm">Favorites</span>
+                                <strong>${formatNumber(favorites)}</strong>
+                            </span>
+                            <span class="game-stat" style="color:var(--text-muted);font-size:12px;">
+                                #${index + 1}
+                            </span>
+                        </div>
+                    `;
+                });
+
+                gamesList.innerHTML = rowsHtml;
+                visitsValueEl.textContent = formatNumber(totalVisits);
+                favoritesValueEl.textContent = formatNumber(totalFavorites);
+                visitsSubEl.textContent = `🔄 ${getTimeStr()}`;
+                favoritesSubEl.textContent = `🔄 ${getTimeStr()}`;
+                lastUpdatedLabel.textContent = `Updated ${getTimeStr()}`;
+
+                setLoading(cardVisits, false);
+                setLoading(cardFavorites, false);
+                cardVisits.classList.remove('error');
+                cardFavorites.classList.remove('error');
+            }
+
+            // ------------------------------------------------------------
+            //  FETCH & RENDER LIVE STATS
             // ------------------------------------------------------------
             async function fetchLiveStats() {
                 if (isFetching) return;
@@ -2291,64 +2399,11 @@
                 gamesList.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Loading games…</p>';
 
                 try {
-                    const response = await fetch(PROXY_URL);
-                    if (!response.ok) throw new Error(`HTTP ${response.status}`);
-                    const data = await response.json();
-
-                    // The proxy returns the same format as Roblox: { data: [game1, game2] }
-                    const games = data?.data || data;
-                    if (!Array.isArray(games) || games.length === 0) {
-                        throw new Error('No game data returned');
-                    }
-
-                    // Calculate totals
-                    let totalVisits = 0;
-                    let totalFavorites = 0;
-
-                    // Build per‑game rows
-                    let rowsHtml = '';
-                    games.forEach((game, index) => {
-                        const visits = game.visits ?? 0;
-                        const favorites = game.favoritedCount ?? 0;
-                        totalVisits += visits;
-                        totalFavorites += favorites;
-
-                        const name = game.name || `Game ${index + 1}`;
-                        rowsHtml += `
-                            <div class="game-row">
-                                <span class="game-name">${truncateName(name, 35)}</span>
-                                <span class="game-stat">
-                                    <span class="label-sm">Visits</span>
-                                    <strong>${formatNumber(visits)}</strong>
-                                </span>
-                                <span class="game-stat">
-                                    <span class="label-sm">Favorites</span>
-                                    <strong>${formatNumber(favorites)}</strong>
-                                </span>
-                                <span class="game-stat" style="color:var(--text-muted);font-size:12px;">
-                                    #${index + 1}
-                                </span>
-                            </div>
-                        `;
-                    });
-
-                    gamesList.innerHTML = rowsHtml;
-
-                    // Update top stats
-                    visitsValueEl.textContent = formatNumber(totalVisits);
-                    favoritesValueEl.textContent = formatNumber(totalFavorites);
-                    visitsSubEl.textContent = `🔄 ${getTimeStr()}`;
-                    favoritesSubEl.textContent = `🔄 ${getTimeStr()}`;
-                    lastUpdatedLabel.textContent = `Updated ${getTimeStr()}`;
-
-                    setLoading(cardVisits, false);
-                    setLoading(cardFavorites, false);
-                    cardVisits.classList.remove('error');
-                    cardFavorites.classList.remove('error');
-
+                    const proxyUrls = buildProxyUrls();
+                    const games = await fetchWithProxyChain(proxyUrls);
+                    renderStats(games);
                 } catch (err) {
-                    console.error('❌ Error fetching stats from proxy:', err);
-
+                    console.error('❌ All proxies failed:', err);
                     visitsValueEl.textContent = '⚠️ Error';
                     favoritesValueEl.textContent = '⚠️ Error';
                     visitsSubEl.textContent = 'retrying…';
@@ -2356,19 +2411,16 @@
                     lastUpdatedLabel.textContent = '⚠️ Last attempt failed';
                     gamesList.innerHTML = `
                         <p style="color:#ff6b6b;font-size:14px;">
-                            ⚠️ Could not load game data.
+                            ⚠️ Could not load live data. Proxies are busy.
                             <br><span style="color:var(--text-muted);font-size:12px;">
-                                Make sure you have uploaded <strong>roblox-proxy.php</strong> to your server.
-                                <br>Check the file path: ${PROXY_URL}
+                                Trying again in 30 seconds...
                             </span>
                         </p>
                     `;
-
                     cardVisits.classList.add('error');
                     cardFavorites.classList.add('error');
                     setLoading(cardVisits, false);
                     setLoading(cardFavorites, false);
-
                 } finally {
                     isFetching = false;
                     refreshSpinner.classList.add('hidden');
