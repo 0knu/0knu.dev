@@ -135,7 +135,7 @@
         }
 
         /* ============================================================
-           PRELOADER – SHORTER
+           PRELOADER
         ============================================================ */
         #preloader {
             position: fixed;
@@ -1658,7 +1658,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – WORKING WITH PROXY CHAIN
+    ROBLOX STATS – DIRECT API WITH FALLBACK
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -2074,28 +2074,35 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – WORKING PROXY CHAIN
+        // 12. ROBLOX STATS – DIRECT API WITH FALLBACK
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  YOUR GOOGLE APPS SCRIPT URL
+            //  CONFIG – YOUR PLACE IDS (from your game URLs)
             // ------------------------------------------------------------
-            const APPS_SCRIPT_URL =
-                'https://script.google.com/macros/s/AKfycbwSSS0lz1GVD11Ftb2J_OfeYOhdobwkxqB3eOloTQ9RBrrBbXUUFCfDi-LFUXfvOucq/exec';
-
-            // Proxy chain – we use allorigins.win as a CORS proxy
-            // It will fetch your Apps Script URL and return the data with proper CORS headers
-            const PROXY_URLS = [
-                `https://api.allorigins.win/raw?url=${encodeURIComponent(APPS_SCRIPT_URL)}`,
-                `https://api.allorigins.win/get?url=${encodeURIComponent(APPS_SCRIPT_URL)}`,
-                // Fallback: try directly (might work if CORS is fixed)
-                APPS_SCRIPT_URL
-            ];
-
+            const PLACE_IDS = [113585108325473, 92815291583693];
             const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000;
+
+            // Roblox API endpoint for place details
+            const ROBLOX_API_URL =
+                `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`;
+
+            // ------------------------------------------------------------
+            //  PROXY CHAIN – these services add CORS headers
+            // ------------------------------------------------------------
+            const PROXY_URLS = [
+                // 1. allorigins.win raw (fastest)
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`,
+                // 2. allorigins.win get (fallback)
+                `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`,
+                // 3. corsproxy.io (another fallback)
+                `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`,
+                // 4. Direct (last resort – may work in some browsers)
+                ROBLOX_API_URL
+            ];
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2171,7 +2178,7 @@
 
                         let data = await response.json();
 
-                        // Handle allorigins 'get' format (has 'contents' field)
+                        // Handle allorigins 'get' format
                         if (data.contents) {
                             try {
                                 data = JSON.parse(data.contents);
@@ -2180,13 +2187,15 @@
                             }
                         }
 
-                        // The Apps Script returns { data: [game1, game2] }
-                        if (data && data.data && Array.isArray(data.data)) {
-                            return data.data;
-                        }
+                        // The multiget-place-details endpoint returns an array directly
                         if (Array.isArray(data)) {
                             return data;
                         }
+                        // If it's wrapped in a data field
+                        if (data && data.data && Array.isArray(data.data)) {
+                            return data.data;
+                        }
+                        // If it's a single game object
                         if (data && data.id && data.name) {
                             return [data];
                         }
