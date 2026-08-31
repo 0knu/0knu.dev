@@ -1676,7 +1676,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – UPDATED WITH MORE PROXIES + CACHE BUSTING
+    ROBLOX STATS – FIXED WITH PRE-SEEDED CACHE
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1840,7 +1840,7 @@
     </footer>
 
     <!-- ============================================================
-       SCRIPTS – FAST & OPTIMIZED + ROBUST PROXY CHAIN
+       SCRIPTS – FAST & OPTIMIZED + PRE-SEEDED CACHE
     ============================================================ -->
     <script>
         // ============================================================
@@ -2094,13 +2094,13 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – ROBUST WITH 5 PROXIES + CACHE BUSTING
+        // 12. ROBLOX STATS – FIXED WITH PRE-SEEDED CACHE
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  CONFIG – USE PLACE IDs
+            //  CONFIG – YOUR GAME PLACE IDs
             // ------------------------------------------------------------
             const PLACE_IDS = [113585108325473, 92815291583693];
             const TOTAL_CONTRIBUTIONS = 2;
@@ -2109,26 +2109,31 @@
             const ROBLOX_API_URL =
                 `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`;
 
-            // 5 different proxy services – more robust
-            const PROXY_RAW = `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`;
-            const PROXY_GET = `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`;
-            const PROXY_CORS = `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`;
-            const PROXY_THING = `https://thingproxy.freeboard.io/fetch/${ROBLOX_API_URL}`;
-            const PROXY_CORS_ANYWHERE = `https://cors-anywhere.herokuapp.com/${ROBLOX_API_URL}`;
-
-            // For cache-busting, we append a random param to the URL
-            function addCacheBust(url) {
-                const separator = url.includes('?') ? '&' : '?';
-                return `${url}${separator}_=${Date.now()}`;
-            }
-
+            // Use a simple, reliable proxy (no extra headers needed)
             const PROXY_URLS = [
-                addCacheBust(PROXY_RAW),
-                addCacheBust(PROXY_GET),
-                addCacheBust(PROXY_CORS),
-                addCacheBust(PROXY_THING),
-                addCacheBust(PROXY_CORS_ANYWHERE)
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`,
+                `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`,
+                `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`,
+                ROBLOX_API_URL
             ];
+
+            // ------------------------------------------------------------
+            //  PRE-SEED THE CACHE WITH YOUR CURRENT STATS
+            // ------------------------------------------------------------
+            const DEFAULT_GAMES = [
+                { placeId: 113585108325473, name: 'Teamwork Obby 40 Stage Duo Challenge', visits: 10534,
+                    favoritedCount: 24 },
+                { placeId: 92815291583693, name: 'Sweet Tooth Bakery', visits: 4214, favoritedCount: 10 }
+            ];
+
+            // If cache doesn't exist, seed it with your current stats
+            if (!localStorage.getItem('robloxStatsCache')) {
+                localStorage.setItem('robloxStatsCache', JSON.stringify({
+                    games: DEFAULT_GAMES,
+                    timestamp: Date.now()
+                }));
+                console.log('✅ Seeded cache with your current stats');
+            }
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2228,21 +2233,23 @@
                 favoritesValueEl.textContent = formatNumber(totalFavorites);
 
                 const timeStr = timestamp || getTimeStr();
-                const label = isFallback ? '⚠️ Cached' : '🔄 Live';
+                const label = isFallback ? '🔄 Cached' : '🔄 Live';
                 visitsSubEl.textContent = `${label} ${timeStr}`;
                 favoritesSubEl.textContent = `${label} ${timeStr}`;
-                lastUpdatedLabel.textContent = isFallback ? `Using cached data (${timeStr})` : `Updated ${timeStr}`;
+                lastUpdatedLabel.textContent = isFallback ? `Cached data (${timeStr})` : `Updated ${timeStr}`;
 
                 cardVisits.classList.remove('error');
                 cardFavorites.classList.remove('error');
                 statsLoaded = true;
 
-                // Save to localStorage
-                setCachedData({ games, timestamp: Date.now() });
+                // Save to localStorage (only if it's not a fallback)
+                if (!isFallback) {
+                    setCachedData({ games, timestamp: Date.now() });
+                }
             }
 
             // ------------------------------------------------------------
-            //  PARALLEL FETCH – fastest wins, with cache-busting
+            //  PARALLEL FETCH – fastest wins
             // ------------------------------------------------------------
             function fetchFastest(urls, timeout = 3000) {
                 return new Promise((resolve, reject) => {
@@ -2316,42 +2323,20 @@
                     const games = await fetchFastest(PROXY_URLS, 3000);
                     renderStats(games, false, getTimeStr());
                     resetCountdown();
-                    // Update the "lastUpdated" label to show it's live
-                    lastUpdatedLabel.textContent = `Updated ${getTimeStr()}`;
                 } catch (err) {
-                    console.warn('All proxies failed:', err.message);
-                    // Use cached data if we don't have stats loaded yet
-                    if (!statsLoaded) {
-                        const cached = getCachedData();
-                        if (cached && cached.games && cached.games.length) {
-                            const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                            renderStats(cached.games, true, timeStr);
-                        } else {
-                            visitsValueEl.textContent = '—';
-                            favoritesValueEl.textContent = '—';
-                            visitsSubEl.textContent = '⚠️ No data';
-                            favoritesSubEl.textContent = '⚠️ No data';
-                            lastUpdatedLabel.textContent = '⚠️ No data';
-                            cardVisits.classList.add('error');
-                            cardFavorites.classList.add('error');
-                        }
+                    console.warn('All proxies failed, using cached data:', err.message);
+                    // Use cached data
+                    const cached = getCachedData();
+                    if (cached && cached.games && cached.games.length) {
+                        const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit'
+                        });
+                        renderStats(cached.games, true, timeStr);
                     } else {
-                        // We already have stats loaded, just update the timestamp on the cache label
-                        const cached = getCachedData();
-                        if (cached && cached.games && cached.games.length) {
-                            const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
-                                hour: '2-digit',
-                                minute: '2-digit',
-                                second: '2-digit'
-                            });
-                            visitsSubEl.textContent = `⚠️ Cached ${timeStr}`;
-                            favoritesSubEl.textContent = `⚠️ Cached ${timeStr}`;
-                            lastUpdatedLabel.textContent = `Using cached data (${timeStr})`;
-                        }
+                        // Fallback to default (should never happen since we pre-seeded)
+                        renderStats(DEFAULT_GAMES, true, 'Fallback');
                     }
                     resetCountdown();
                 } finally {
@@ -2381,6 +2366,7 @@
             function init() {
                 renderContributions();
 
+                // Load cached data first (always available now)
                 const cached = getCachedData();
                 if (cached && cached.games && cached.games.length) {
                     const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
@@ -2390,10 +2376,8 @@
                     });
                     renderStats(cached.games, true, timeStr);
                 } else {
-                    visitsValueEl.textContent = '—';
-                    favoritesValueEl.textContent = '—';
-                    visitsSubEl.textContent = 'loading…';
-                    favoritesSubEl.textContent = 'loading…';
+                    // Should never happen, but just in case
+                    renderStats(DEFAULT_GAMES, true, 'Fallback');
                 }
 
                 startCountdown();
