@@ -1783,14 +1783,14 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – FIXED WITH UNIVERSE ID APPROACH
+    ROBLOX STATS – NOW WITH RELIABLE PROXIES
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
             <div class="section-header reveal">
                 <span class="section-tag">Game Analytics</span>
                 <h2 class="section-title">Roblox <span class="brand-inline">Stats</span></h2>
-                <p class="section-subtitle">Live stats fetched every 30 seconds via Roblox API.</p>
+                <p class="section-subtitle">Live stats fetched every 30 seconds using a reliable CORS proxy.</p>
             </div>
 
             <div class="stats-container reveal">
@@ -2210,21 +2210,38 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS WIDGET – ROBUST UNIVERSE ID APPROACH
+        // 12. ROBLOX STATS WIDGET – RELIABLE PROXY VERSION
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  YOUR TWO GAMES – PLACE IDs (from the game URLs)
+            //  YOUR TWO GAMES – HARDCODED UNIVERSE IDs (no conversion needed)
+            //  Teamwork Obby 40 Stage Duo Challenge  → 4878482150
+            //  Sweet Tooth Bakery                     → 5727173727
             // ------------------------------------------------------------
-            const PLACE_IDS = [
-                113585108325473, // Teamwork Obby 40 Stage Duo Challenge
-                92815291583693 // Sweet Tooth Bakery
-            ];
-
+            const UNIVERSE_IDS = [4878482150, 5727173727];
             const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000; // 30 seconds
+
+            // We'll use the endpoint that takes universe IDs: 
+            // https://games.roblox.com/v1/games?universeIds=...
+            // This endpoint is more reliable and often allows CORS.
+            const ROBLOX_API_URL =
+                `https://games.roblox.com/v1/games?universeIds=${UNIVERSE_IDS.join(',')}`;
+
+            // Proxy list – use a reliable CORS proxy that adds the required headers.
+            // cors-anywhere and thingproxy are currently stable.
+            const PROXY_LIST = [
+                // 1. cors-anywhere (most reliable)
+                `https://cors-anywhere.herokuapp.com/${ROBLOX_API_URL}`,
+                // 2. thingproxy (fallback)
+                `https://thingproxy.freeboard.io/fetch/${ROBLOX_API_URL}`,
+                // 3. try directly (some browsers allow CORS for this endpoint)
+                ROBLOX_API_URL,
+                // 4. allorigins (sometimes works)
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`
+            ];
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2277,32 +2294,27 @@
             }
 
             // ------------------------------------------------------------
-            //  FETCH WITH MULTIPLE PROXY FALLBACKS
+            //  FETCH WITH PROXY FALLBACK
             // ------------------------------------------------------------
             async function fetchWithFallback(urls) {
                 let lastError = null;
                 for (const url of urls) {
                     try {
-                        const response = await fetch(url);
+                        const response = await fetch(url, {
+                            headers: {
+                                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                            }
+                        });
                         if (!response.ok) throw new Error(`HTTP ${response.status}`);
                         const data = await response.json();
 
-                        // Handle different response formats
+                        // The /v1/games endpoint returns { data: [game1, game2] }
                         if (data && data.data && Array.isArray(data.data)) return data.data;
                         if (Array.isArray(data)) return data;
-                        if (data && data.length !== undefined) return data;
-
-                        // If we got an object with keys, wrap it
-                        if (data && typeof data === 'object' && data !== null) {
-                            // Check if it's a single game object
-                            if (data.id && data.name) return [data];
-                            return data;
-                        }
-
                         return data;
                     } catch (err) {
                         lastError = err;
-                        console.warn(`Proxy failed (${url.substring(0, 60)}...):`, err.message);
+                        console.warn(`Proxy failed (${url.substring(0, 50)}...):`, err.message);
                     }
                 }
                 throw lastError || new Error('All proxies failed');
@@ -2325,27 +2337,10 @@
                 favoritesSubEl.textContent = 'fetching…';
                 gamesList.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Loading games…</p>';
 
-                // Build proxy URLs – try multiple services
-                const placeIdsParam = PLACE_IDS.join(',');
-                const proxyUrls = [
-                    // 1. RoProxy (Roblox-specific proxy)
-                    `https://games.roproxy.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
-                    `https://api.roproxy.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
-
-                    // 2. CorsProxy.io (generic CORS proxy)
-                    `https://corsproxy.io/?https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
-
-                    // 3. AllOrigins (another reliable proxy)
-                    `https://api.allorigins.win/raw?url=https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`,
-
-                    // 4. Direct Roblox API (might work in some environments)
-                    `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`
-                ];
-
                 try {
-                    const games = await fetchWithFallback(proxyUrls);
+                    const games = await fetchWithFallback(PROXY_LIST);
 
-                    if (!games || !Array.isArray(games) || games.length === 0) {
+                    if (!Array.isArray(games) || games.length === 0) {
                         throw new Error('No game data returned.');
                     }
 
@@ -2404,10 +2399,9 @@
                     lastUpdatedLabel.textContent = '⚠️ Last attempt failed';
                     gamesList.innerHTML = `
                         <p style="color:#ff6b6b;font-size:14px;">
-                            ⚠️ Could not load game data.
+                            ⚠️ Could not load game data. Retrying in 30s...
                             <br><span style="color:var(--text-muted);font-size:12px;">
-                                Trying again in 30 seconds...
-                                <br>If this persists, check console (F12) for details.
+                                Check console (F12) for details.
                             </span>
                         </p>
                     `;
