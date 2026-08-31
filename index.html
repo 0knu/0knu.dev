@@ -810,7 +810,7 @@
         }
 
         /* ============================================================
-           ROBLOX STATS WIDGET
+           ROBLOX STATS WIDGET – NO PER-GAME BREAKDOWN + ROBUST PROXIES
         ============================================================ */
         .roblox-widget .stats-container {
             max-width: 820px;
@@ -1676,7 +1676,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – LIVE DATA
+    ROBLOX STATS – UPDATED WITH MORE PROXIES + CACHE BUSTING
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1729,6 +1729,8 @@
                     </div>
 
                 </div>
+
+                <!-- No per‑game breakdown -->
             </div>
         </div>
     </section>
@@ -1838,11 +1840,11 @@
     </footer>
 
     <!-- ============================================================
-       SCRIPTS
+       SCRIPTS – FAST & OPTIMIZED + ROBUST PROXY CHAIN
     ============================================================ -->
     <script>
         // ============================================================
-        // 1. PRELOADER
+        // 1. PRELOADER – faster (max 800ms)
         // ============================================================
         (function() {
             const preloader = document.getElementById('preloader');
@@ -1882,7 +1884,7 @@
         }
 
         // ============================================================
-        // 3. CUSTOM CURSOR
+        // 3. CUSTOM CURSOR – CLEAN
         // ============================================================
         function initCursor() {
             const cursor = document.getElementById('customCursor');
@@ -1917,7 +1919,7 @@
         }
 
         // ============================================================
-        // 4. TYPING EFFECT
+        // 4. TYPING EFFECT FOR TERMINAL – FIXED (no duplicate labels)
         // ============================================================
         function initTypingEffect() {
             const terminalBody = document.getElementById('terminalBody');
@@ -2092,19 +2094,41 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – LIVE DATA (REPLACE PLACE IDs!)
+        // 12. ROBLOX STATS – ROBUST WITH 5 PROXIES + CACHE BUSTING
         // ============================================================
         (function() {
             'use strict';
 
-            // ==========================================================
-            //  IMPORTANT: Replace these with YOUR actual Roblox Place IDs
-            //  Go to your game page: https://www.roblox.com/games/[ID]
-            //  Copy the number from the URL
-            // ==========================================================
-            const PLACE_IDS = [YOUR_PLACE_ID_1, YOUR_PLACE_ID_2];
-            const TOTAL_CONTRIBUTIONS = PLACE_IDS.length;
+            // ------------------------------------------------------------
+            //  CONFIG – USE PLACE IDs
+            // ------------------------------------------------------------
+            const PLACE_IDS = [113585108325473, 92815291583693];
+            const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000;
+
+            const ROBLOX_API_URL =
+                `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`;
+
+            // 5 different proxy services – more robust
+            const PROXY_RAW = `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`;
+            const PROXY_GET = `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`;
+            const PROXY_CORS = `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`;
+            const PROXY_THING = `https://thingproxy.freeboard.io/fetch/${ROBLOX_API_URL}`;
+            const PROXY_CORS_ANYWHERE = `https://cors-anywhere.herokuapp.com/${ROBLOX_API_URL}`;
+
+            // For cache-busting, we append a random param to the URL
+            function addCacheBust(url) {
+                const separator = url.includes('?') ? '&' : '?';
+                return `${url}${separator}_=${Date.now()}`;
+            }
+
+            const PROXY_URLS = [
+                addCacheBust(PROXY_RAW),
+                addCacheBust(PROXY_GET),
+                addCacheBust(PROXY_CORS),
+                addCacheBust(PROXY_THING),
+                addCacheBust(PROXY_CORS_ANYWHERE)
+            ];
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2125,6 +2149,7 @@
             let isFetching = false;
             let autoRefreshTimer = null;
             let countdownInterval = null;
+            let statsLoaded = false;
             let remainingSeconds = 30;
 
             // ------------------------------------------------------------
@@ -2169,18 +2194,27 @@
             }
 
             // ------------------------------------------------------------
-            //  RENDER STATS
+            //  LOCAL STORAGE CACHE
             // ------------------------------------------------------------
-            function renderStats(games, timestamp) {
+            function getCachedData() {
+                try {
+                    const raw = localStorage.getItem('robloxStatsCache');
+                    return raw ? JSON.parse(raw) : null;
+                } catch { return null; }
+            }
+
+            function setCachedData(data) {
+                try {
+                    localStorage.setItem('robloxStatsCache', JSON.stringify(data));
+                } catch {}
+            }
+
+            // ------------------------------------------------------------
+            //  RENDER STATS – only totals
+            // ------------------------------------------------------------
+            function renderStats(games, isFallback, timestamp) {
                 if (!Array.isArray(games) || games.length === 0) {
-                    visitsValueEl.textContent = '—';
-                    favoritesValueEl.textContent = '—';
-                    visitsSubEl.textContent = '⚠️ No data';
-                    favoritesSubEl.textContent = '⚠️ No data';
-                    lastUpdatedLabel.textContent = '⚠️ No data';
-                    cardVisits.classList.add('error');
-                    cardFavorites.classList.add('error');
-                    return;
+                    throw new Error('Invalid game data');
                 }
 
                 let totalVisits = 0;
@@ -2194,40 +2228,33 @@
                 favoritesValueEl.textContent = formatNumber(totalFavorites);
 
                 const timeStr = timestamp || getTimeStr();
-                visitsSubEl.textContent = `🔄 Live ${timeStr}`;
-                favoritesSubEl.textContent = `🔄 Live ${timeStr}`;
-                lastUpdatedLabel.textContent = `Updated ${timeStr}`;
+                const label = isFallback ? '⚠️ Cached' : '🔄 Live';
+                visitsSubEl.textContent = `${label} ${timeStr}`;
+                favoritesSubEl.textContent = `${label} ${timeStr}`;
+                lastUpdatedLabel.textContent = isFallback ? `Using cached data (${timeStr})` : `Updated ${timeStr}`;
 
                 cardVisits.classList.remove('error');
                 cardFavorites.classList.remove('error');
+                statsLoaded = true;
+
+                // Save to localStorage
+                setCachedData({ games, timestamp: Date.now() });
             }
 
             // ------------------------------------------------------------
-            //  FETCH FROM ROBLOX API
+            //  PARALLEL FETCH – fastest wins, with cache-busting
             // ------------------------------------------------------------
-            function fetchRobloxStats() {
-                return new Promise((resolve) => {
-                    if (!PLACE_IDS || PLACE_IDS.length === 0 || PLACE_IDS[0] === 'YOUR_PLACE_ID_1') {
-                        resolve(null);
-                        return;
-                    }
-
-                    const placeIdsParam = PLACE_IDS.join(',');
-                    const apiUrl = `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${placeIdsParam}`;
-
-                    // Try multiple proxy services
-                    const proxies = [
-                        `https://api.allorigins.win/raw?url=${encodeURIComponent(apiUrl)}&_=${Date.now()}`,
-                        `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}&_=${Date.now()}`,
-                        `https://corsproxy.io/?${encodeURIComponent(apiUrl)}&_=${Date.now()}`
-                    ];
-
-                    let attempts = 0;
-                    let maxAttempts = proxies.length;
+            function fetchFastest(urls, timeout = 3000) {
+                return new Promise((resolve, reject) => {
                     let resolved = false;
+                    const errors = [];
 
-                    proxies.forEach((proxyUrl) => {
-                        fetch(proxyUrl, {
+                    const timeoutId = setTimeout(() => {
+                        if (!resolved) reject(new Error('Timeout'));
+                    }, timeout);
+
+                    const promises = urls.map(url =>
+                        fetch(url, {
                             headers: {
                                 'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
                             }
@@ -2237,7 +2264,7 @@
                             return res.json();
                         })
                         .then(data => {
-                            // Handle different response formats
+                            // Parse different response formats
                             if (data.contents) {
                                 try { data = JSON.parse(data.contents); } catch {}
                             }
@@ -2247,31 +2274,30 @@
                             return data;
                         })
                         .then(games => {
-                            if (!resolved && Array.isArray(games) && games.length > 0) {
-                                const hasValidData = games.some(g => g && (g.visits !== undefined || g.favoritedCount !== undefined));
-                                if (hasValidData) {
-                                    resolved = true;
-                                    resolve(games);
-                                }
+                            if (!Array.isArray(games) || games.length === 0) {
+                                throw new Error('No games');
+                            }
+                            if (!resolved) {
+                                resolved = true;
+                                clearTimeout(timeoutId);
+                                resolve(games);
                             }
                         })
-                        .catch(() => {
-                            attempts++;
-                            if (attempts >= maxAttempts && !resolved) {
-                                if (!resolved) {
-                                    resolved = true;
-                                    resolve(null);
-                                }
+                        .catch(err => {
+                            errors.push(err.message);
+                            if (!resolved && errors.length === urls.length) {
+                                clearTimeout(timeoutId);
+                                reject(new Error('All proxies failed'));
                             }
-                        });
-                    });
+                        })
+                    );
 
-                    setTimeout(() => {
+                    Promise.allSettled(promises).then(() => {
                         if (!resolved) {
-                            resolved = true;
-                            resolve(null);
+                            clearTimeout(timeoutId);
+                            reject(new Error('All proxies failed'));
                         }
-                    }, 5000);
+                    });
                 });
             }
 
@@ -2287,19 +2313,23 @@
                 countdownTimer.textContent = '⟳';
 
                 try {
-                    const games = await fetchRobloxStats();
-                    
-                    if (games && Array.isArray(games) && games.length > 0) {
-                        renderStats(games, getTimeStr());
-                    } else {
-                        if (PLACE_IDS[0] === 'YOUR_PLACE_ID_1') {
-                            visitsValueEl.textContent = '⚠️';
-                            favoritesValueEl.textContent = '⚠️';
-                            visitsSubEl.textContent = 'Set your Place IDs';
-                            favoritesSubEl.textContent = 'Set your Place IDs';
-                            lastUpdatedLabel.textContent = '⚠️ Configure place IDs';
-                            cardVisits.classList.add('error');
-                            cardFavorites.classList.add('error');
+                    const games = await fetchFastest(PROXY_URLS, 3000);
+                    renderStats(games, false, getTimeStr());
+                    resetCountdown();
+                    // Update the "lastUpdated" label to show it's live
+                    lastUpdatedLabel.textContent = `Updated ${getTimeStr()}`;
+                } catch (err) {
+                    console.warn('All proxies failed:', err.message);
+                    // Use cached data if we don't have stats loaded yet
+                    if (!statsLoaded) {
+                        const cached = getCachedData();
+                        if (cached && cached.games && cached.games.length) {
+                            const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            renderStats(cached.games, true, timeStr);
                         } else {
                             visitsValueEl.textContent = '—';
                             favoritesValueEl.textContent = '—';
@@ -2309,10 +2339,20 @@
                             cardVisits.classList.add('error');
                             cardFavorites.classList.add('error');
                         }
+                    } else {
+                        // We already have stats loaded, just update the timestamp on the cache label
+                        const cached = getCachedData();
+                        if (cached && cached.games && cached.games.length) {
+                            const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                                hour: '2-digit',
+                                minute: '2-digit',
+                                second: '2-digit'
+                            });
+                            visitsSubEl.textContent = `⚠️ Cached ${timeStr}`;
+                            favoritesSubEl.textContent = `⚠️ Cached ${timeStr}`;
+                            lastUpdatedLabel.textContent = `Using cached data (${timeStr})`;
+                        }
                     }
-                    resetCountdown();
-                } catch (err) {
-                    console.warn('Fetch failed:', err.message);
                     resetCountdown();
                 } finally {
                     isFetching = false;
@@ -2341,25 +2381,24 @@
             function init() {
                 renderContributions();
 
-                // Show loading state
-                visitsValueEl.textContent = '⋯';
-                favoritesValueEl.textContent = '⋯';
-                visitsSubEl.textContent = 'loading…';
-                favoritesSubEl.textContent = 'loading…';
-
-                if (PLACE_IDS[0] === 'YOUR_PLACE_ID_1') {
-                    visitsValueEl.textContent = '⚠️';
-                    favoritesValueEl.textContent = '⚠️';
-                    visitsSubEl.textContent = 'Set your Place IDs';
-                    favoritesSubEl.textContent = 'Set your Place IDs';
-                    lastUpdatedLabel.textContent = '⚠️ Configure place IDs';
-                    cardVisits.classList.add('error');
-                    cardFavorites.classList.add('error');
+                const cached = getCachedData();
+                if (cached && cached.games && cached.games.length) {
+                    const timeStr = new Date(cached.timestamp).toLocaleTimeString('en-US', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        second: '2-digit'
+                    });
+                    renderStats(cached.games, true, timeStr);
                 } else {
-                    startCountdown();
-                    fetchLiveStats(false);
-                    startAutoRefresh();
+                    visitsValueEl.textContent = '—';
+                    favoritesValueEl.textContent = '—';
+                    visitsSubEl.textContent = 'loading…';
+                    favoritesSubEl.textContent = 'loading…';
                 }
+
+                startCountdown();
+                fetchLiveStats(false);
+                startAutoRefresh();
 
                 refreshBtn.addEventListener('click', () => {
                     refreshAll();
