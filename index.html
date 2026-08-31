@@ -138,7 +138,7 @@
         }
 
         /* ============================================================
-           PRELOADER – SUBTLE
+           PRELOADER – SHORTER (faster load)
         ============================================================ */
         #preloader {
             position: fixed;
@@ -148,7 +148,7 @@
             display: flex;
             align-items: center;
             justify-content: center;
-            transition: opacity 1s ease, visibility 1s ease;
+            transition: opacity 0.6s ease, visibility 0.6s ease;
         }
         #preloader.hidden {
             opacity: 0;
@@ -191,7 +191,7 @@
             width: 0%;
             height: 100%;
             background: #ffffff;
-            transition: width 0.2s ease;
+            transition: width 0.15s ease;
         }
 
         /* ============================================================
@@ -810,7 +810,7 @@
         }
 
         /* ============================================================
-           ROBLOX STATS WIDGET – WITH FALLBACK & EDIT
+           ROBLOX STATS WIDGET – FAST & OPTIMIZED
         ============================================================ */
         .roblox-widget .stats-container {
             max-width: 820px;
@@ -1576,7 +1576,7 @@
     <!-- ===== SCROLL PROGRESS ===== -->
     <div class="scroll-progress" id="scrollProgress"></div>
 
-    <!-- ===== PRELOADER ===== -->
+    <!-- ===== PRELOADER – SHORTER (faster) ===== -->
     <div id="preloader">
         <div class="preloader-content">
             <span class="preloader-logo">0knu</span>
@@ -1784,14 +1784,14 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – THE FINAL, FOOLPROOF VERSION
+    ROBLOX STATS – FAST LOADING OPTIMIZED
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
             <div class="section-header reveal">
                 <span class="section-tag">Game Analytics</span>
                 <h2 class="section-title">Roblox <span class="brand-inline">Stats</span></h2>
-                <p class="section-subtitle">Live stats – will always show numbers (cached fallback if offline).</p>
+                <p class="section-subtitle">Live stats – loads instantly from cache, updates in background.</p>
             </div>
 
             <div class="stats-container reveal">
@@ -1822,17 +1822,17 @@
                     </div>
 
                     <!-- Total Visits (live) -->
-                    <div class="stat-card visits loading" id="cardVisits">
+                    <div class="stat-card visits" id="cardVisits">
                         <div class="label">👁️ Total Visits</div>
-                        <div class="value" id="visitsValue" contenteditable="false">—</div>
-                        <div class="sub" id="visitsSub">fetching…</div>
+                        <div class="value" id="visitsValue">—</div>
+                        <div class="sub" id="visitsSub">loading…</div>
                     </div>
 
                     <!-- Total Favorites (live) -->
-                    <div class="stat-card favorites loading" id="cardFavorites">
+                    <div class="stat-card favorites" id="cardFavorites">
                         <div class="label">❤️ Total Favorites</div>
-                        <div class="value" id="favoritesValue" contenteditable="false">—</div>
-                        <div class="sub" id="favoritesSub">fetching…</div>
+                        <div class="value" id="favoritesValue">—</div>
+                        <div class="sub" id="favoritesSub">loading…</div>
                     </div>
 
                 </div>
@@ -1843,9 +1843,6 @@
                     <div id="gamesList">
                         <!-- Populated by JavaScript -->
                     </div>
-                </div>
-                <div style="margin-top:12px;font-size:11px;color:var(--text-muted);">
-                    ⚡ Click on any number above to edit it manually (if API is down).
                 </div>
             </div>
         </div>
@@ -1956,18 +1953,18 @@
     </footer>
 
     <!-- ============================================================
-       SCRIPTS – THE ULTIMATE ENGINE
+       SCRIPTS – FAST & OPTIMIZED
     ============================================================ -->
     <script>
         // ============================================================
-        // 1. PRELOADER
+        // 1. PRELOADER – faster (max 800ms)
         // ============================================================
         (function() {
             const preloader = document.getElementById('preloader');
             const fill = document.getElementById('preloader-fill');
             let progress = 0;
             const interval = setInterval(() => {
-                progress += Math.random() * 8 + 2;
+                progress += Math.random() * 12 + 5;
                 if (progress > 100) progress = 100;
                 fill.style.width = progress + '%';
                 if (progress >= 100) {
@@ -1979,9 +1976,9 @@
                         initCursor();
                         initTypingEffect();
                         initScrollProgress();
-                    }, 400);
+                    }, 300);
                 }
-            }, 160);
+            }, 100);
         })();
 
         // ============================================================
@@ -2095,12 +2092,12 @@
                     } else {
                         clearInterval(interval);
                         lineIndex++;
-                        setTimeout(typeLine, 400);
+                        setTimeout(typeLine, 300);
                     }
-                }, 50);
+                }, 40);
             }
 
-            setTimeout(typeLine, 600);
+            setTimeout(typeLine, 500);
         }
 
         // ============================================================
@@ -2210,7 +2207,7 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – THE FINAL VERSION (with manual override)
+        // 12. ROBLOX STATS – OPTIMIZED FAST LOADING
         // ============================================================
         (function() {
             'use strict';
@@ -2226,12 +2223,12 @@
             const ROBLOX_API_URL =
                 `https://games.roblox.com/v1/games?universeIds=${UNIVERSE_IDS.join(',')}`;
 
-            // Proxies in order of reliability (allorigins.raw is best)
+            // Proxies – we'll try these in parallel and take the fastest
             const PROXY_URLS = [
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`,
                 `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`,
                 `https://corsproxy.io/?${encodeURIComponent(ROBLOX_API_URL)}`,
-                ROBLOX_API_URL // direct (last resort)
+                ROBLOX_API_URL
             ];
 
             // ------------------------------------------------------------
@@ -2252,6 +2249,7 @@
 
             let isFetching = false;
             let autoRefreshTimer = null;
+            let statsLoaded = false;
 
             // ------------------------------------------------------------
             //  HELPERS
@@ -2269,16 +2267,12 @@
                 });
             }
 
-            function setLoading(card, loading) {
-                card.classList.toggle('loading', loading);
-            }
-
             function truncateName(name, maxLen = 35) {
                 return name.length > maxLen ? name.slice(0, maxLen) + '…' : name;
             }
 
             // ------------------------------------------------------------
-            //  LOCAL STORAGE CACHE (so numbers persist)
+            //  LOCAL STORAGE CACHE
             // ------------------------------------------------------------
             function getCachedData() {
                 try {
@@ -2294,7 +2288,7 @@
             }
 
             // ------------------------------------------------------------
-            //  RENDER STATS FROM DATA OBJECT
+            //  RENDER STATS (with loading state control)
             // ------------------------------------------------------------
             function renderStats(games, isFallback) {
                 if (!Array.isArray(games) || games.length === 0) {
@@ -2333,58 +2327,83 @@
                 gamesList.innerHTML = rowsHtml;
                 visitsValueEl.textContent = formatNumber(totalVisits);
                 favoritesValueEl.textContent = formatNumber(totalFavorites);
-                visitsValueEl.contentEditable = false;
-                favoritesValueEl.contentEditable = false;
 
                 const label = isFallback ? '⚠️ Cached' : '🔄';
                 visitsSubEl.textContent = `${label} ${getTimeStr()}`;
                 favoritesSubEl.textContent = `${label} ${getTimeStr()}`;
                 lastUpdatedLabel.textContent = isFallback ? 'Using cached data' : `Updated ${getTimeStr()}`;
 
-                setLoading(cardVisits, false);
-                setLoading(cardFavorites, false);
                 cardVisits.classList.remove('error');
                 cardFavorites.classList.remove('error');
+                statsLoaded = true;
 
                 // Save to localStorage
                 setCachedData({ games, timestamp: Date.now() });
             }
 
             // ------------------------------------------------------------
-            //  FETCH WITH PROXY CHAIN (tries multiple)
+            //  PARALLEL FETCH – fastest wins
             // ------------------------------------------------------------
-            async function fetchWithProxyChain(urls) {
-                let lastError = null;
-                for (const url of urls) {
-                    try {
-                        const response = await fetch(url, {
+            function fetchFastest(urls, timeout = 4000) {
+                return new Promise((resolve, reject) => {
+                    let resolved = false;
+                    const errors = [];
+
+                    const timeoutId = setTimeout(() => {
+                        if (!resolved) reject(new Error('Timeout'));
+                    }, timeout);
+
+                    const promises = urls.map(url =>
+                        fetch(url, {
                             headers: { 'User-Agent': 'Mozilla/5.0' }
-                        });
-                        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+                        })
+                        .then(res => {
+                            if (!res.ok) throw new Error(`HTTP ${res.status}`);
+                            return res.json();
+                        })
+                        .then(data => {
+                            // Parse different response formats
+                            if (data.contents) {
+                                try { data = JSON.parse(data.contents); } catch {}
+                            }
+                            if (data && data.data && Array.isArray(data.data)) return data.data;
+                            if (Array.isArray(data)) return data;
+                            if (data && data.id && data.name) return [data];
+                            return data;
+                        })
+                        .then(games => {
+                            if (!Array.isArray(games) || games.length === 0) {
+                                throw new Error('No games');
+                            }
+                            if (!resolved) {
+                                resolved = true;
+                                clearTimeout(timeoutId);
+                                resolve(games);
+                            }
+                        })
+                        .catch(err => {
+                            errors.push(err.message);
+                            if (!resolved && errors.length === urls.length) {
+                                clearTimeout(timeoutId);
+                                reject(new Error('All proxies failed'));
+                            }
+                        })
+                    );
 
-                        let data = await response.json();
-
-                        // allorigins 'get' format
-                        if (data.contents) {
-                            try { data = JSON.parse(data.contents); } catch { throw new Error('Parse error'); }
+                    // If all fail, reject after timeout
+                    Promise.allSettled(promises).then(() => {
+                        if (!resolved) {
+                            clearTimeout(timeoutId);
+                            reject(new Error('All proxies failed'));
                         }
-
-                        if (data && data.data && Array.isArray(data.data)) return data.data;
-                        if (Array.isArray(data)) return data;
-                        if (data && data.id && data.name) return [data];
-                        return data;
-                    } catch (err) {
-                        lastError = err;
-                        console.warn(`Proxy failed (${url.substring(0, 50)}...):`, err.message);
-                    }
-                }
-                throw lastError || new Error('All proxies failed');
+                    });
+                });
             }
 
             // ------------------------------------------------------------
-            //  FETCH & RENDER LIVE STATS
+            //  FETCH & RENDER – show cached immediately, update in bg
             // ------------------------------------------------------------
-            async function fetchLiveStats() {
+            async function fetchLiveStats(force = false) {
                 if (isFetching) return;
                 isFetching = true;
 
@@ -2392,50 +2411,28 @@
                 refreshBtnText.textContent = 'Updating…';
                 refreshBtn.disabled = true;
 
-                setLoading(cardVisits, true);
-                setLoading(cardFavorites, true);
-                visitsSubEl.textContent = 'fetching…';
-                favoritesSubEl.textContent = 'fetching…';
-                gamesList.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Loading games…</p>';
-
                 try {
-                    const games = await fetchWithProxyChain(PROXY_URLS);
+                    const games = await fetchFastest(PROXY_URLS, 4000);
                     renderStats(games, false);
-                    // Enable editing after successful fetch
-                    visitsValueEl.contentEditable = false;
-                    favoritesValueEl.contentEditable = false;
                 } catch (err) {
-                    console.error('❌ All proxies failed:', err);
-                    // Use cached data if available
-                    const cached = getCachedData();
-                    if (cached && cached.games && cached.games.length) {
-                        renderStats(cached.games, true);
-                        visitsValueEl.contentEditable = true;
-                        favoritesValueEl.contentEditable = true;
-                        visitsSubEl.textContent = '⚠️ Cached (click to edit)';
-                        favoritesSubEl.textContent = '⚠️ Cached (click to edit)';
-                    } else {
-                        // No cached data – show error and allow manual entry
-                        visitsValueEl.textContent = '—';
-                        favoritesValueEl.textContent = '—';
-                        visitsValueEl.contentEditable = true;
-                        favoritesValueEl.contentEditable = true;
-                        visitsSubEl.textContent = '⚠️ Click to edit';
-                        favoritesSubEl.textContent = '⚠️ Click to edit';
-                        lastUpdatedLabel.textContent = '⚠️ No data – click numbers to set';
-
-                        gamesList.innerHTML = `
-                            <p style="color:#ff6b6b;font-size:14px;">
-                                ⚠️ Could not load data.<br>
-                                <span style="color:var(--text-muted);font-size:12px;">
-                                    Click the numbers above to enter your stats manually.
-                                </span>
-                            </p>
-                        `;
-                        cardVisits.classList.add('error');
-                        cardFavorites.classList.add('error');
-                        setLoading(cardVisits, false);
-                        setLoading(cardFavorites, false);
+                    console.warn('Fastest proxy failed:', err.message);
+                    // Use cached data if we don't have stats loaded yet
+                    if (!statsLoaded) {
+                        const cached = getCachedData();
+                        if (cached && cached.games && cached.games.length) {
+                            renderStats(cached.games, true);
+                        } else {
+                            // No data at all – show error
+                            visitsValueEl.textContent = '—';
+                            favoritesValueEl.textContent = '—';
+                            visitsSubEl.textContent = '⚠️ No data';
+                            favoritesSubEl.textContent = '⚠️ No data';
+                            lastUpdatedLabel.textContent = '⚠️ Click to edit';
+                            cardVisits.classList.add('error');
+                            cardFavorites.classList.add('error');
+                            gamesList.innerHTML =
+                                `<p style="color:var(--text-muted);font-size:14px;">Click the numbers above to set your stats.</p>`;
+                        }
                     }
                 } finally {
                     isFetching = false;
@@ -2446,16 +2443,25 @@
             }
 
             // ------------------------------------------------------------
-            //  MANUAL EDIT – save to localStorage
+            //  CONTRIBUTIONS
+            // ------------------------------------------------------------
+            function renderContributions() {
+                contributionsEl.textContent = formatNumber(TOTAL_CONTRIBUTIONS);
+            }
+
+            // ------------------------------------------------------------
+            //  MANUAL EDIT – allow direct editing
             // ------------------------------------------------------------
             function enableManualEdit() {
-                // We'll allow contenteditable on the values
-                // Save on blur
-                function saveManualStats() {
+                visitsValueEl.contentEditable = true;
+                favoritesValueEl.contentEditable = true;
+                visitsValueEl.style.cursor = 'pointer';
+                favoritesValueEl.style.cursor = 'pointer';
+
+                function saveManual() {
                     const visits = parseInt(visitsValueEl.textContent.replace(/,/g, ''), 10);
                     const favs = parseInt(favoritesValueEl.textContent.replace(/,/g, ''), 10);
                     if (!isNaN(visits) && !isNaN(favs)) {
-                        // Create a fake games array with two dummy games
                         const fakeGames = [
                             { name: 'Teamwork Obby', visits: Math.round(visits * 0.6), favoritedCount: Math.round(favs *
                                     0.6) },
@@ -2463,12 +2469,7 @@
                                     favs * 0.4) }
                         ];
                         setCachedData({ games: fakeGames, timestamp: Date.now() });
-                        // Re-render with the new data (but keep the total numbers)
-                        // Just update the sub labels
-                        visitsSubEl.textContent = '✅ Manually set';
-                        favoritesSubEl.textContent = '✅ Manually set';
-                        lastUpdatedLabel.textContent = `Manual entry ${getTimeStr()}`;
-                        // Also update the games list with these dummy games
+                        statsLoaded = true;
                         let rowsHtml = '';
                         fakeGames.forEach((game, index) => {
                             rowsHtml += `
@@ -2489,27 +2490,28 @@
                             `;
                         });
                         gamesList.innerHTML = rowsHtml;
+                        visitsSubEl.textContent = '✅ Manually set';
+                        favoritesSubEl.textContent = '✅ Manually set';
+                        lastUpdatedLabel.textContent = `Manual ${getTimeStr()}`;
                         cardVisits.classList.remove('error');
                         cardFavorites.classList.remove('error');
                     }
                 }
 
-                visitsValueEl.addEventListener('blur', saveManualStats);
-                favoritesValueEl.addEventListener('blur', saveManualStats);
-
-                // Also make the sub label clickable to trigger edit
+                visitsValueEl.addEventListener('blur', saveManual);
+                favoritesValueEl.addEventListener('blur', saveManual);
+                visitsValueEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault();
+                        visitsValueEl.blur(); } });
+                favoritesValueEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault();
+                        favoritesValueEl.blur(); } });
                 visitsSubEl.style.cursor = 'pointer';
                 favoritesSubEl.style.cursor = 'pointer';
                 visitsSubEl.title = 'Click to edit total visits';
                 favoritesSubEl.title = 'Click to edit total favorites';
-                visitsSubEl.addEventListener('click', () => {
-                    visitsValueEl.focus();
-                    visitsValueEl.select();
-                });
-                favoritesSubEl.addEventListener('click', () => {
-                    favoritesValueEl.focus();
-                    favoritesValueEl.select();
-                });
+                visitsSubEl.addEventListener('click', () => { visitsValueEl.focus();
+                    visitsValueEl.select(); });
+                favoritesSubEl.addEventListener('click', () => { favoritesValueEl.focus();
+                    favoritesValueEl.select(); });
             }
 
             // ------------------------------------------------------------
@@ -2517,14 +2519,7 @@
             // ------------------------------------------------------------
             async function refreshAll() {
                 renderContributions();
-                await fetchLiveStats();
-            }
-
-            // ------------------------------------------------------------
-            //  RENDER CONTRIBUTIONS (manual)
-            // ------------------------------------------------------------
-            function renderContributions() {
-                contributionsEl.textContent = formatNumber(TOTAL_CONTRIBUTIONS);
+                await fetchLiveStats(true);
             }
 
             // ------------------------------------------------------------
@@ -2532,17 +2527,34 @@
             // ------------------------------------------------------------
             function startAutoRefresh() {
                 if (autoRefreshTimer) clearInterval(autoRefreshTimer);
-                autoRefreshTimer = setInterval(refreshAll, REFRESH_INTERVAL_MS);
+                autoRefreshTimer = setInterval(() => {
+                    fetchLiveStats(false);
+                }, REFRESH_INTERVAL_MS);
             }
 
             // ------------------------------------------------------------
-            //  INIT
+            //  INIT – show cached instantly, then fetch live
             // ------------------------------------------------------------
             function init() {
                 renderContributions();
-                refreshAll();
-                startAutoRefresh();
                 enableManualEdit();
+
+                // Show cached data immediately (if available)
+                const cached = getCachedData();
+                if (cached && cached.games && cached.games.length) {
+                    renderStats(cached.games, true);
+                } else {
+                    // Show placeholder until fetch completes
+                    visitsValueEl.textContent = '—';
+                    favoritesValueEl.textContent = '—';
+                    visitsSubEl.textContent = 'loading…';
+                    favoritesSubEl.textContent = 'loading…';
+                    gamesList.innerHTML = '<p style="color:var(--text-muted);font-size:14px;">Loading stats…</p>';
+                }
+
+                // Then fetch live in background
+                fetchLiveStats(false);
+                startAutoRefresh();
 
                 refreshBtn.addEventListener('click', () => {
                     refreshAll();
