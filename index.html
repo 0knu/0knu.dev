@@ -1783,7 +1783,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – USING YOUR GOOGLE APPS SCRIPT PROXY
+    ROBLOX STATS – USING ALLORIGINS PROXY (NO CORS ISSUES)
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -2210,18 +2210,25 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – USING YOUR GOOGLE APPS SCRIPT PROXY
+        // 12. ROBLOX STATS – USING ALLORIGINS PROXY (NO CORS)
         // ============================================================
         (function() {
             'use strict';
 
             // ------------------------------------------------------------
-            //  🔧  YOUR PROXY URL – already set for you
+            //  🔧  YOUR UNIVERSE IDs (already set correctly)
             // ------------------------------------------------------------
-            const PROXY_URL = 'https://script.google.com/macros/s/AKfycbwSSS0lz1GVD11Ftb2J_OfeYOhdobwkxqB3eOloTQ9RBrrBbXUUFCfDi-LFUXfvOucq/exec';
-
+            const UNIVERSE_IDS = [7441615118, 10440974627];
             const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000;
+
+            // Build the Roblox API URL
+            const ROBLOX_API_URL =
+                `https://games.roblox.com/v1/games?universeIds=${UNIVERSE_IDS.join(',')}`;
+
+            // Use allorigins.win as a CORS proxy – it adds the required headers
+            const PROXY_URL =
+                `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`;
 
             // ------------------------------------------------------------
             //  DOM REFS
@@ -2274,7 +2281,7 @@
             }
 
             // ------------------------------------------------------------
-            //  FETCH & RENDER LIVE STATS VIA YOUR PROXY
+            //  FETCH & RENDER LIVE STATS VIA ALLORIGINS PROXY
             // ------------------------------------------------------------
             async function fetchLiveStats() {
                 if (isFetching) return;
