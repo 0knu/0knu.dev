@@ -45,6 +45,7 @@
         html {
             scroll-behavior: smooth;
             -webkit-font-smoothing: antialiased;
+            overflow-x: hidden;
         }
 
         body {
@@ -804,7 +805,7 @@
         }
 
         /* ============================================================
-           ROBLOX STATS WIDGET – FAST VERSION (NO PURPLE GLOW)
+           ROBLOX STATS WIDGET – FAST VERSION (MOBILE FIXED)
         ============================================================ */
         .roblox-widget .stats-container {
             max-width: 820px;
@@ -815,6 +816,7 @@
             padding: 32px 36px 28px;
             box-shadow: var(--shadow-card);
             transition: border-color 0.25s;
+            overflow: hidden;
         }
         .roblox-widget .stats-container:hover {
             border-color: rgba(255, 255, 255, 0.08);
@@ -859,6 +861,7 @@
             gap: 14px;
             font-size: 13px;
             color: #6a6a8a;
+            flex-wrap: wrap;
         }
         .roblox-widget .stats-header-right .last-updated {
             display: flex;
@@ -962,7 +965,6 @@
             border-color: rgba(255, 255, 255, 0.10);
             transform: translateY(-2px);
         }
-        /* REMOVED the purple glow from the first card */
 
         .roblox-widget .stat-card .label {
             font-size: 12px;
@@ -1019,6 +1021,89 @@
         }
         .roblox-widget .stat-card.error .label {
             color: #ff6b6b;
+        }
+
+        /* ============================================================
+           MOBILE FIXES – NO HORIZONTAL SCROLL, BETTER LAYOUT
+        ============================================================ */
+        @media (max-width: 768px) {
+            .roblox-widget .stats-container {
+                padding: 20px 16px 20px;
+                border-radius: 12px;
+            }
+
+            .roblox-widget .stats-grid {
+                grid-template-columns: 1fr;
+                gap: 12px;
+            }
+
+            .roblox-widget .stats-grid .stat-card:first-child {
+                grid-column: 1 / 2;
+            }
+
+            .roblox-widget .stat-card {
+                padding: 16px 18px 14px;
+                min-height: 80px;
+            }
+
+            .roblox-widget .stat-card .value {
+                font-size: 26px;
+            }
+
+            .roblox-widget .stats-header {
+                flex-direction: row;
+                align-items: center;
+                gap: 10px;
+            }
+
+            .roblox-widget .stats-header-left h1 {
+                font-size: 18px;
+            }
+
+            .roblox-widget .stats-header-right {
+                font-size: 11px;
+                gap: 8px;
+            }
+
+            .roblox-widget .refresh-btn {
+                padding: 4px 10px;
+                font-size: 11px;
+                min-width: 80px;
+            }
+
+            .roblox-widget .refresh-btn .countdown {
+                font-size: 10px;
+                min-width: 24px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .roblox-widget .stats-container {
+                padding: 16px 12px 16px;
+            }
+
+            .roblox-widget .stat-card .value {
+                font-size: 22px;
+            }
+
+            .roblox-widget .stats-header-left .icon {
+                font-size: 20px;
+            }
+
+            .roblox-widget .stats-header-left h1 {
+                font-size: 16px;
+            }
+
+            .roblox-widget .refresh-btn {
+                padding: 4px 8px;
+                font-size: 10px;
+                min-width: 60px;
+            }
+
+            .roblox-widget .refresh-btn .countdown {
+                font-size: 9px;
+                min-width: 20px;
+            }
         }
 
         /* ============================================================
@@ -1649,7 +1734,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – FAST VERSION (NO PURPLE GLOW)
+    ROBLOX STATS – FAST VERSION (MOBILE FIXED)
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -2065,7 +2150,7 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – FAST VERSION (NO PURPLE GLOW)
+        // 12. ROBLOX STATS – FAST VERSION (MOBILE FIXED)
         // ============================================================
         (function() {
             'use strict';
