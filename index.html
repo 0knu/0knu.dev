@@ -1734,7 +1734,7 @@
     </section>
 
     <!-- ============================================================
-    ROBLOX STATS – FAST VERSION (MOBILE FIXED)
+    ROBLOX STATS – FAST VERSION (MOBILE FIXED + PRE-SEEDED CACHE)
     ============================================================ -->
     <section id="roblox-stats" class="section-padding text-center roblox-widget" style="background: var(--bg-primary); border-top: 1px solid var(--border-subtle);">
         <div class="container">
@@ -1896,7 +1896,7 @@
     </footer>
 
     <!-- ============================================================
-       SCRIPTS – FAST VERSION
+       SCRIPTS – FAST VERSION WITH PRE-SEEDED CACHE
     ============================================================ -->
     <script>
         // ============================================================
@@ -2150,7 +2150,7 @@
         });
 
         // ============================================================
-        // 12. ROBLOX STATS – FAST VERSION (MOBILE FIXED)
+        // 12. ROBLOX STATS – FAST VERSION WITH PRE-SEEDED CACHE
         // ============================================================
         (function() {
             'use strict';
@@ -2162,12 +2162,30 @@
             const TOTAL_CONTRIBUTIONS = 2;
             const REFRESH_INTERVAL_MS = 30000;
 
+            // ------------------------------------------------------------
+            //  PRE-SEED THE CACHE WITH YOUR CURRENT STATS
+            //  ⚠️ UPDATE THESE NUMBERS TO YOUR REAL STATS
+            // ------------------------------------------------------------
+            const DEFAULT_VISITS = 10534;
+            const DEFAULT_FAVORITES = 24;
+            const DEFAULT_GAMES = [
+                { placeId: 113585108325473, name: 'Teamwork Obby 40 Stage Duo Challenge', visits: 6320,
+                    favoritedCount: 14 },
+                { placeId: 92815291583693, name: 'Sweet Tooth Bakery', visits: 4214, favoritedCount: 10 }
+            ];
+
+            // If cache doesn't exist, seed it with default stats
+            if (!localStorage.getItem('robloxStatsCache')) {
+                localStorage.setItem('robloxStatsCache', JSON.stringify({
+                    games: DEFAULT_GAMES,
+                    timestamp: Date.now()
+                }));
+                console.log('✅ Seeded cache with default stats');
+            }
+
             const ROBLOX_API_URL =
                 `https://games.roblox.com/v1/games/multiget-place-details?placeIds=${PLACE_IDS.join(',')}`;
 
-            // ------------------------------------------------------------
-            //  PROXY CHAIN – tries all in parallel, takes fastest
-            // ------------------------------------------------------------
             const PROXY_URLS = [
                 `https://api.allorigins.win/raw?url=${encodeURIComponent(ROBLOX_API_URL)}`,
                 `https://api.allorigins.win/get?url=${encodeURIComponent(ROBLOX_API_URL)}`,
@@ -2359,17 +2377,17 @@
                     resetCountdown();
                 } catch (err) {
                     console.warn('Fastest proxy failed:', err.message);
+                    // Always fall back to cached data (which is pre-seeded)
                     const cached = getCachedData();
                     if (cached && cached.games && cached.games.length) {
                         renderStats(cached.games, true);
                     } else {
-                        visitsValueEl.textContent = '—';
-                        favoritesValueEl.textContent = '—';
-                        visitsSubEl.textContent = '⚠️ No data';
-                        favoritesSubEl.textContent = '⚠️ No data';
-                        lastUpdatedLabel.textContent = '⚠️ No data';
-                        cardVisits.classList.add('error');
-                        cardFavorites.classList.add('error');
+                        // This should never happen since we pre-seed
+                        visitsValueEl.textContent = formatNumber(DEFAULT_VISITS);
+                        favoritesValueEl.textContent = formatNumber(DEFAULT_FAVORITES);
+                        visitsSubEl.textContent = '⚠️ Default';
+                        favoritesSubEl.textContent = '⚠️ Default';
+                        lastUpdatedLabel.textContent = '⚠️ Using default stats';
                     }
                     resetCountdown();
                 } finally {
@@ -2404,8 +2422,9 @@
                 if (cached && cached.games && cached.games.length) {
                     renderStats(cached.games, true);
                 } else {
-                    visitsValueEl.textContent = '—';
-                    favoritesValueEl.textContent = '—';
+                    // Fallback to default stats (pre-seeded)
+                    visitsValueEl.textContent = formatNumber(DEFAULT_VISITS);
+                    favoritesValueEl.textContent = formatNumber(DEFAULT_FAVORITES);
                     visitsSubEl.textContent = 'loading…';
                     favoritesSubEl.textContent = 'loading…';
                 }
